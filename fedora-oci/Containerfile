@@ -1,0 +1,74 @@
+FROM fedora:latest
+
+LABEL maintainer="container"
+LABEL org.opencontainers.image.title="fedora-oci"
+LABEL org.opencontainers.image.description="Fedora OCI-compliant container with SSH"
+LABEL org.opencontainers.image.vendor="community"
+
+RUN dnf install -y \
+    openssh-server \
+    sudo \
+    passwd \
+    ncurses-base \
+    ncurses \
+    bash-completion \
+    coreutils \
+    util-linux \
+    findutils \
+    grep \
+    sed \
+    gawk \
+    diffutils \
+    procps-ng \
+    less \
+    vim-enhanced \
+    tar \
+    gzip \
+    xz \
+    curl \
+    iproute \
+    iputils \
+    hostname \
+    which \
+    bind-utils \
+    net-tools \
+    nmap-ncat \
+    traceroute \
+    whois \
+    jq \
+    wget \
+    openssl \
+    nodejs \
+    npm \
+    strace \
+    ltrace \
+    lsof \
+    tcpdump \
+    socat \
+    mtr \
+    htop \
+    btop \
+    tree \
+    file \
+    rsync \
+    tmux \
+    httpie \
+    man-db \
+    && dnf clean all
+
+RUN npm install -g wscat && npm cache clean --force
+
+RUN useradd -m -s /bin/bash user && \
+    echo "user:user" | chpasswd && \
+    echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/user && \
+    chmod 440 /etc/sudoers.d/user
+
+RUN chmod 400 /etc/shadow
+
+RUN ssh-keygen -A
+
+RUN mkdir -p /run/sshd
+
+EXPOSE 22
+
+CMD ["/usr/sbin/sshd", "-D"]
