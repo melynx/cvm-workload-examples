@@ -6,15 +6,16 @@ Demonstrates a multi-container workload with three containers sharing a persiste
 
 ```
                     +-----------+
-    POST /task ---->|           |----> GET /process --> worker-a (:3001)
-    GET /status --->| coordinator|                       writes to /shared/
-    GET /results -->| (:3000)   |----> GET /process --> worker-b (:3002)
-                    +-----------+                       writes to /shared/
+    GET /          >|           |----> POST /process --> worker-a (:3001)
+    POST /task ---->| coordinator|                        writes to /shared/
+    GET /status --->| (:3000)   |----> POST /process --> worker-b (:3002)
+    GET /results -->|           |                        writes to /shared/
+    POST /clear --->+-----------+
                          |
                      /shared/ (persistent disk, shared by all three)
 ```
 
-**coordinator** - HTTP server accepting tasks. Writes task files to the shared disk, then calls each worker over the network to process them. `/status` queries workers' health endpoints. `/results` reads all files from the shared disk.
+**coordinator** - HTTP server with a live dashboard at `/`. Accepts tasks via `POST /task`, writing task files to the shared disk and delegating to workers over the container network. `/status` queries workers' health endpoints. `/results` reads all files from the shared disk. `POST /clear` removes all files from the shared disk.
 
 **worker-a** - Processes tasks and writes result files to the shared disk. Writes periodic heartbeats. Reads other workers' heartbeats from disk.
 
@@ -39,6 +40,9 @@ atakit workload build -d .
 ## Test locally (after CVM agent supports dependencies)
 
 ```
+# Open the dashboard
+curl http://localhost:3000/
+
 # Submit a task
 curl -X POST http://localhost:3000/task -d "hello world"
 
@@ -47,4 +51,7 @@ curl http://localhost:3000/status
 
 # Read all files from the shared disk
 curl http://localhost:3000/results
+
+# Clear the shared disk
+curl -X POST http://localhost:3000/clear
 ```
