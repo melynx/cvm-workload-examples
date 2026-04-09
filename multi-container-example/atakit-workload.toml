@@ -1,0 +1,57 @@
+# Multi-container example: coordinator + two workers sharing a disk.
+#
+# The coordinator accepts tasks via HTTP, delegates processing to workers
+# over the container network, and reads aggregated results from a shared
+# persistent disk. Each worker writes heartbeats and task results to the
+# same disk.
+#
+# Demonstrates: dependencies, shared disks, inter-container networking,
+# per-container environment, depends_on ordering.
+
+format = 1
+
+[workload]
+name = "multi-container-example"
+version = "v0.1.0"
+base-image-mode = "blacklist"
+image = { build = ".", containerfile = "Containerfile" }
+ports = ["3000:3000"]
+restart = "unless-stopped"
+
+[workload.disks]
+shared-data = "/shared"
+
+# ── workers ──────────────────────────────────────────────────────
+
+[dependencies.worker-a]
+image = { build = ".", containerfile = "Containerfile.worker" }
+ports = ["3001:3001"]
+restart = "unless-stopped"
+
+[dependencies.worker-a.environment]
+WORKER_NAME = "worker-a"
+WORKER_PORT = "3001"
+
+[dependencies.worker-a.disks]
+shared-data = "/shared"
+
+[dependencies.worker-b]
+image = { build = ".", containerfile = "Containerfile.worker" }
+ports = ["3002:3002"]
+restart = "unless-stopped"
+depends_on = ["worker-a"]
+
+[dependencies.worker-b.environment]
+WORKER_NAME = "worker-b"
+WORKER_PORT = "3002"
+
+[dependencies.worker-b.disks]
+shared-data = "/shared"
+
+# ── shared persistent disk ───────────────────────────────────────
+
+[disks.shared-data]
+size = "10GB"
+
+[firewall]
+allow = ["4000/tcp"]
