@@ -1,0 +1,29 @@
+# Peer attestation demo: two CVM instances verify each other, exchange keys,
+# and communicate over an encrypted channel.
+#
+# Deploy the same archive to two CVMs. Per-instance config (node name, peer
+# address) comes from unmeasured-data/peer-config.json, provided by the
+# operator at deploy time.
+#
+# Demonstrates: CVM agent /sign-message, secp256k1 signature verification,
+# ephemeral ECDH key exchange, AES-256-GCM encrypted messaging, unmeasured
+# data for per-instance configuration.
+
+format = 1
+
+[workload]
+name = "peer-attestation-demo"
+version = "v0.0.1-alpha6"
+base-image-mode = "blacklist"
+image = { build = ".", containerfile = "Containerfile" }
+ports = ["3000:3000", "4000:4000"]
+restart = "unless-stopped"
+cvm_agent = true
+unmeasured-data = ["./peer-config.json"]
+
+[workload.environment]
+DASHBOARD_PORT = "3000"
+PEER_PORT = "4000"
+
+[firewall]
+allow = ["3000/tcp", "4000/tcp"]
