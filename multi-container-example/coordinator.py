@@ -3,6 +3,7 @@
 import json
 import os
 import time
+import traceback
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -132,22 +133,41 @@ setInterval(refresh, 2000);
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path == "/" or self.path == "/dashboard":
-            self._dashboard()
-        elif self.path == "/status":
-            self._status()
-        elif self.path == "/results":
-            self._results()
-        else:
-            self.send_error(404)
+        try:
+            if self.path == "/" or self.path == "/dashboard":
+                self._dashboard()
+            elif self.path == "/status":
+                self._status()
+            elif self.path == "/results":
+                self._results()
+            else:
+                self.send_error(404)
+        except Exception:
+            self._fail(traceback.format_exc())
 
     def do_POST(self):
-        if self.path == "/task":
-            self._create_task()
-        elif self.path == "/clear":
-            self._clear_disk()
-        else:
-            self.send_error(404)
+        try:
+            if self.path == "/task":
+                self._create_task()
+            elif self.path == "/clear":
+                self._clear_disk()
+            else:
+                self.send_error(404)
+        except Exception:
+            self._fail(traceback.format_exc())
+
+    def _fail(self, detail):
+        """Last-resort 500 with the traceback so curl sees the real cause."""
+        print(f"[coordinator] handler error:\n{detail}")
+        body = json.dumps({"error": detail}, indent=2).encode()
+        try:
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception:
+            pass  # connection already broken; nothing to do
 
     def _dashboard(self):
         body = DASHBOARD_HTML.encode()

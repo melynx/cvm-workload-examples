@@ -4,6 +4,7 @@ import json
 import os
 import threading
 import time
+import traceback
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 SHARED = "/shared"
@@ -34,16 +35,34 @@ def heartbeat_loop():
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path == "/health":
-            self._health()
-        else:
-            self.send_error(404)
+        try:
+            if self.path == "/health":
+                self._health()
+            else:
+                self.send_error(404)
+        except Exception:
+            self._fail(traceback.format_exc())
 
     def do_POST(self):
-        if self.path == "/process":
-            self._process()
-        else:
-            self.send_error(404)
+        try:
+            if self.path == "/process":
+                self._process()
+            else:
+                self.send_error(404)
+        except Exception:
+            self._fail(traceback.format_exc())
+
+    def _fail(self, detail):
+        print(f"[{NAME}] handler error:\n{detail}")
+        body = json.dumps({"error": detail}, indent=2).encode()
+        try:
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception:
+            pass
 
     def _health(self):
         """Return worker status and count of files on shared disk."""

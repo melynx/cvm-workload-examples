@@ -33,25 +33,45 @@ Demonstrates a multi-container workload with three containers sharing a persiste
 
 ## Build
 
-```
+```bash
 atakit workload build -d .
 ```
 
-## Test locally (after CVM agent supports dependencies)
+## Deploy
 
+```bash
+# Deploy to a configured cloud target (one-shot per CVM /init).
+atakit cloud deploy multi-container-example:v0.1.0 \
+    --image <base-image>:<version> --target <target>
+
+# Get the external IP.
+atakit cloud status multi-container-example-<target> --target <target>
 ```
+
+The workload exposes the coordinator dashboard on port `3000` and the workers
+on `3001` / `3002`. Cross-container DNS (`worker-a`, `worker-b`) is provisioned
+by the portal's per-workload network — no manual wiring needed.
+
+## Exercise the running workload
+
+Replace `${IP}` with the external IP from `atakit cloud status`.
+
+```bash
 # Open the dashboard
-curl http://localhost:3000/
+curl http://${IP}:3000/
 
-# Submit a task
-curl -X POST http://localhost:3000/task -d "hello world"
+# Submit a task (coordinator writes it to /shared and fans out to both workers)
+curl -X POST http://${IP}:3000/task -d "hello world"
 
-# Check status (queries workers over network)
-curl http://localhost:3000/status
+# Inspect status (coordinator polls each worker's /health)
+curl http://${IP}:3000/status
 
-# Read all files from the shared disk
-curl http://localhost:3000/results
+# Read everything on the shared disk
+curl http://${IP}:3000/results
 
 # Clear the shared disk
-curl -X POST http://localhost:3000/clear
+curl -X POST http://${IP}:3000/clear
 ```
+
+If a handler raises, the response is a JSON 500 with the Python traceback —
+useful for diagnosing disk-mount, networking, or permission issues.

@@ -8,11 +8,11 @@
 # Demonstrates: dependencies, shared disks, inter-container networking,
 # per-container environment, depends_on ordering.
 
-format = 1
+format = 2
 
 [workload]
 name = "multi-container-example"
-version = "v0.1.0"
+version = "v0.2.0"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000"]
@@ -52,6 +52,7 @@ shared-data = "/shared"
 
 [disks.shared-data]
 size = "10GB"
+encryption = { unlock_method = [], bind = [] }
 
 [firewall]
 allow = ["4000/tcp"]
