@@ -1,7 +1,7 @@
 # peer-attestation-demo
 
 Two CVM instances running the same workload verify each other's identity via
-the CVM agent's session key, perform an authenticated key exchange, and
+the portal's per-boot session key, perform an authenticated key exchange, and
 communicate over an AES-256-GCM encrypted channel. A web dashboard visualizes
 the entire protocol flow in real time.
 
@@ -14,7 +14,7 @@ the entire protocol flow in real time.
  |  dashboard HTTP (:3000)     |  handshake +   |  dashboard HTTP (:3000)     |
  |  peer socket TCP (:4000)    |  encrypted <-> |  peer socket TCP (:4000)    |
  |    |                        |  messages      |    |                        |
- |    +-- CVM agent            |                |    +-- CVM agent            |
+ |    +-- atakit-portal UDS    |                |    +-- atakit-portal UDS    |
  |        /sign-message        |                |        /sign-message        |
  |        (secp256k1)          |                |        (secp256k1)          |
  +-----------------------------+                +-----------------------------+
@@ -27,14 +27,18 @@ deploy time.
 ## Protocol
 
 1. **Handshake** -- each node generates an ephemeral secp256k1 keypair and
-   asks its CVM agent to sign the public key via `POST /sign-message`. The
-   signed ephemeral key and session info (sessionId, workloadId, baseImageId)
-   are exchanged.
+   asks the portal to sign the public key via `POST /sign-message` on the
+   workload UDS (`/run/atakit-portal.sock`). The portal signs
+   `keccak256("ATAKIT_SESSION_SIGN_V1" || ephemeral_pub)` with the per-boot
+   session key. The signed ephemeral key, the session id, and the session
+   public key are exchanged with the peer.
 
-2. **Verification** -- each node verifies the peer's signature against the
+2. **Verification** -- each node recomputes the same domain-prefixed digest
+   from the peer's ephemeral key and verifies the signature against the
    peer's session public key, confirming the peer holds the corresponding
-   private key (which never leaves the TEE). WorkloadId and baseImageId are
-   checked to ensure both nodes run the same workload on a valid base image.
+   private key (which never leaves the TEE). Binding the peer's session id
+   to a specific workload + base image requires an on-chain
+   `SessionRegistry.getSession` lookup -- see "On-chain verification" below.
 
 3. **Key exchange** -- ECDH on the ephemeral keys produces a shared secret.
    HKDF-SHA256 derives a 32-byte AES-256-GCM key. The salt binds the key to
@@ -46,9 +50,11 @@ deploy time.
 
 ## What this demonstrates
 
-- CVM agent integration (`cvm_agent = true`, Unix socket at `/app/cvm-agent.sock`)
-- Session key signing (`POST /sign-message`, secp256k1/keccak256)
-- Cross-CVM identity verification (workload ID + base image match)
+- Portal integration (`atakit-portal = true`, Unix socket at `/run/atakit-portal.sock`)
+- Session key signing (`POST /sign-message`, secp256k1, domain-prefixed keccak256)
+- Domain-separated message hashing (`ATAKIT_SESSION_SIGN_V1 || message`)
+- Per-boot stable session identity (`session_id`, `session_pubkey`) returned
+  alongside every signature
 - Signed Diffie-Hellman key exchange (ephemeral keys + session key authentication)
 - Forward secrecy (ephemeral keys discarded after ECDH)
 - AES-256-GCM authenticated encryption
@@ -62,16 +68,16 @@ Requires Python 3.12+ with `cryptography` and `pycryptodome`:
 pip install cryptography pycryptodome
 ```
 
-Run a mock CVM agent and workload node in separate terminals:
+Run a mock portal and workload node in separate terminals:
 
 ```bash
-# Terminal 1 -- mock agent for alpha
+# Terminal 1 -- mock portal for alpha
 python mock_agent.py /tmp/agent-alpha.sock
 
 # Terminal 2 -- alpha node
 AGENT_SOCKET=/tmp/agent-alpha.sock NODE_NAME=alpha DASHBOARD_PORT=3000 PEER_PORT=4000 python node.py
 
-# Terminal 3 -- mock agent for beta
+# Terminal 3 -- mock portal for beta
 python mock_agent.py /tmp/agent-beta.sock
 
 # Terminal 4 -- beta node
@@ -82,29 +88,42 @@ Open http://localhost:3000, enter `localhost:4001` as the peer address, and
 click Connect. Both dashboards will show the attestation, key exchange, and
 encrypted message flow.
 
-Note: each mock agent generates its own secp256k1 session key but reports the
-same workload ID, so cross-verification passes. The mock agents report
-`isEmulation: true` in `/platform`.
+Note: each mock portal generates its own secp256k1 session key and signs
+domain-prefixed message hashes exactly like the real portal. The mock does
+not implement on-chain `SessionRegistry` lookups, so cross-CVM
+workload-binding checks are deferred to a production deployment.
 
 ## Deploy to CVMs
+
+The repo ships per-instance `peer-config.json` files under `alpha/` and
+`beta/`. Pass the directory to `--unmeasured-data-dir` so the CLI picks up
+the right config without overwriting anything at the workload root.
 
 ```bash
 cd cvm-workload-examples/peer-attestation-demo
 
-# Build the archive (same for both instances)
+# Build the archive (same for both instances).
 atakit workload build -d .
 
-# Deploy alpha
-echo '{"node_name": "alpha"}' > peer-config.json
-atakit cloud deploy -d . --target <target> --name peer-demo-alpha
+# Deploy alpha (uses alpha/peer-config.json verbatim).
+atakit cloud deploy -d . --unmeasured-data-dir alpha \
+    --target <target> --name peer-demo-alpha
 
-# Get alpha's external IP
+# Get alpha's external IP.
 atakit cloud status peer-demo-alpha --target <target>
 
-# Deploy beta (with auto-connect to alpha)
-echo '{"node_name": "beta", "peer_addr": "<alpha-ip>:4000"}' > peer-config.json
-atakit cloud deploy -d . --target <target> --name peer-demo-beta
+# Edit beta/peer-config.json: replace "<alpha-ip>" with the value above,
+# then deploy beta (which will auto-connect to alpha after startup).
+atakit cloud deploy -d . --unmeasured-data-dir beta \
+    --target <target> --name peer-demo-beta --skip-freshness-check
 ```
+
+`--unmeasured-data-dir` resolves each entry declared in
+`[package] unmeasured-data` against the named directory, packs them into a
+tar.gz, and ships it as part of `/init`. The directory you pick is purely a
+lookup base — the files arrive on the CVM at `/atakit-portal/unmeasured-data/`
+(read-only) regardless of the host-side parent dir, which is where `node.py`
+expects to find them.
 
 ## Dashboard
 
@@ -162,15 +181,19 @@ delimited JSON frames for:
 
 ## On-chain verification
 
-In the current demo, signature verification and workload ID checks happen
-locally. For full production security, you would also:
+In the current demo, only the peer's signature is verified locally. The
+workload-facing `/sign-message` endpoint deliberately returns just the
+session identity (`session_id`, `session_pubkey`) plus the signature, so
+binding that session to a specific workload + base image requires the
+on-chain registry. For full production security, also:
 
-1. Query `SessionRegistry.getSession(peer.sessionId)` on-chain
+1. Query `SessionRegistry.getSession(peer.session_id)` on-chain
 2. Verify the session is active (`isSessionActive`)
-3. Confirm `sessionKeyFingerprint` matches the peer's claimed public key
-4. Call `verifySessionSignature` for on-chain signature verification
+3. Confirm `session.sessionKeyFingerprint == peer.session_pubkey.fingerprint`
+4. Check `workloadId`, `baseImageId`, expiry, and revocation as required
 
-The dashboard displays all session data needed for these checks.
+The dashboard displays the `session_id` and `session_pubkey.fingerprint`
+needed to drive these checks.
 
 ## Security notes
 

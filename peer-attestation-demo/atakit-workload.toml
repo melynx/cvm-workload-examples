@@ -9,17 +9,20 @@
 # ephemeral ECDH key exchange, AES-256-GCM encrypted messaging, unmeasured
 # data for per-instance configuration.
 
-format = 1
+format = 2
+
+[package]
+unmeasured-data = ["./peer-config.json"]
 
 [workload]
 name = "peer-attestation-demo"
-version = "v0.0.1-alpha6"
+version = "v0.0.1-alpha7"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000", "4000:4000"]
 restart = "unless-stopped"
-cvm_agent = true
-unmeasured-data = ["./peer-config.json"]
+atakit-portal = true
+unmeasured-data = true
 
 [workload.environment]
 DASHBOARD_PORT = "3000"

@@ -1,10 +1,12 @@
-"""Mock CVM agent for local testing.
+"""Mock portal for local testing.
 
-Listens on a Unix socket and implements the subset of the CVM agent API used
-by the peer-attestation-demo: POST /sign-message and GET /platform.
+Listens on a Unix socket and implements the subset of the workload-facing
+portal API used by the peer-attestation-demo: POST /sign-message per
+atakit-portal/docs/workload-sign-message.md.
 
-Generates a secp256k1 session key at startup and signs messages with it, just
-like the real CVM agent would inside a TEE.
+Generates a secp256k1 session key at startup and signs with it the same way
+the real portal would (keccak256(DOMAIN || message), DOMAIN =
+"ATAKIT_SESSION_SIGN_V1").
 
 Usage:
     python mock_agent.py /tmp/agent-alpha.sock
@@ -14,6 +16,7 @@ Then point the workload at the socket:
     AGENT_SOCKET=/tmp/agent-alpha.sock NODE_NAME=alpha DASHBOARD_PORT=3000 PEER_PORT=4000 python node.py
 """
 
+import hashlib
 import json
 import os
 import socket
@@ -36,8 +39,15 @@ _session_pub_bytes = _session_public.public_bytes(
     serialization.PublicFormat.UncompressedPoint,
 )
 
-_WORKLOAD_NAME = "peer-attestation-demo"
-_WORKLOAD_VERSION = "v0.1.0"
+
+# Domain separator the real portal prepends before hashing. Must match
+# SIGN_MESSAGE_DOMAIN in atakit-portal/crates/atakit-portal-api/src/workload.rs.
+_SIGN_MESSAGE_DOMAIN = b"ATAKIT_SESSION_SIGN_V1"
+
+# Solidity literal `keccak256("KEY_RESOLVER_V1")` -- KEY_DOMAIN used by
+# LibKey.computeKeyFingerprint. See
+# atakit-portal/crates/atakit-portal-chain/src/domains.rs.
+_KEY_DOMAIN_LITERAL = b"KEY_RESOLVER_V1"
 
 
 def _keccak256(data: bytes) -> bytes:
@@ -46,49 +56,85 @@ def _keccak256(data: bytes) -> bytes:
     return k.digest()
 
 
-def _make_id(domain: str, *parts: bytes) -> str:
-    payload = domain.encode()
-    for p in parts:
-        payload += p
-    return "0x" + _keccak256(payload).hex()
+def _u256(value: int) -> bytes:
+    return value.to_bytes(32, "big")
 
 
-_SESSION_ID = _make_id("SESSION_DOMAIN", _session_pub_bytes)
-_WORKLOAD_ID = _make_id("WORKLOAD_DOMAIN", _WORKLOAD_NAME.encode(), _WORKLOAD_VERSION.encode())
-_SESSION_KEY_FP = _make_id("KEY_RESOLVER_V1", b"\x03", _session_pub_bytes)
-_BASE_IMAGE_ID = "0x" + _keccak256(b"mock-base-image-v1").hex()
-_OWNER_FP = "0x" + _keccak256(b"mock-owner").hex()
+def _compute_key_fingerprint(type_id: int, key_bytes: bytes) -> bytes:
+    """Mirror Solidity `LibKey.computeKeyFingerprint`:
+
+        keccak256(abi.encode(KEY_DOMAIN, typeId, key))
+
+    See atakit-portal/crates/atakit-portal-chain/src/hashes.rs::compute_key_fingerprint.
+    `abi.encode(bytes32, uint8, bytes)` lays out as:
+      slot 0: KEY_DOMAIN (32B)
+      slot 1: typeId left-padded to 32B
+      slot 2: offset to dynamic bytes = 0x60
+      slot 3: bytes length (uint256)
+      slot 4+: bytes data, right-padded to a 32B multiple
+    """
+    key_domain = _keccak256(_KEY_DOMAIN_LITERAL)
+    pad = (32 - (len(key_bytes) % 32)) % 32
+    buf = (
+        key_domain
+        + _u256(type_id)
+        + _u256(0x60)
+        + _u256(len(key_bytes))
+        + key_bytes
+        + b"\x00" * pad
+    )
+    return _keccak256(buf)
 
 
-def _sign_message(message_hex: str) -> dict:
-    """Replicate the CVM agent's /sign-message behavior.
+def _hex0x(data: bytes) -> str:
+    return "0x" + data.hex()
 
-    Signs keccak256(raw_message_bytes) with the session key (secp256k1 ECDSA).
-    Returns Ethereum-style r+s+v signature.
+
+# Session key fingerprint per the real portal's formula. The session_id in a
+# real deploy is keccak256(abi.encode(SESSION_DOMAIN, tpmSignatureHash,
+# teeReportHash)) -- the mock has no TPM/TEE, so we substitute a deterministic
+# stand-in derived from the session pubkey.
+_SESSION_KEY_FINGERPRINT = _compute_key_fingerprint(3, _session_pub_bytes)
+_SESSION_ID = _keccak256(b"MOCK_SESSION_ID_V1" + _session_pub_bytes)
+
+
+def _sign_message(message_hex: str, hash_fn: str = "keccak256") -> dict:
+    """Replicate the portal's /sign-message behaviour.
+
+    Signs `hash_fn(DOMAIN || raw_message_bytes)` with the session key
+    (secp256k1 ECDSA). Returns Ethereum-style r+s+v.
     """
     raw = message_hex[2:] if message_hex.startswith("0x") else message_hex
     message_bytes = bytes.fromhex(raw)
-    digest = _keccak256(message_bytes)
+    payload = _SIGN_MESSAGE_DOMAIN + message_bytes
 
-    # Sign the pre-hashed digest (Prehashed(SHA256) tells the library not to
-    # hash again; digest size matches SHA-256 at 32 bytes).
+    if hash_fn == "keccak256":
+        digest = _keccak256(payload)
+    elif hash_fn == "sha256":
+        digest = hashlib.sha256(payload).digest()
+    else:
+        raise ValueError(f"unsupported hash_fn: {hash_fn}")
+
+    # Sign the pre-hashed 32-byte digest. cryptography uses Prehashed(SHA256)
+    # only to learn the expected digest size; keccak256 also yields 32 bytes
+    # so this shim works for both hash_fns.
     der_sig = _session_private.sign(
         digest,
         ec.ECDSA(ec_utils.Prehashed(hashes.SHA256())),
     )
-
     r, s = ec_utils.decode_dss_signature(der_sig)
-    sig_hex = "0x" + r.to_bytes(32, "big").hex() + s.to_bytes(32, "big").hex() + "1b"
+    sig_hex = _hex0x(r.to_bytes(32, "big") + s.to_bytes(32, "big") + b"\x1b")
 
     return {
+        "hash_fn": hash_fn,
+        "message_hash": _hex0x(digest),
         "signature": sig_hex,
-        "sessionId": _SESSION_ID,
-        "sessionKeyPublic": {"typeId": 3, "key": "0x" + _session_pub_bytes.hex()},
-        "sessionKeyFingerprint": _SESSION_KEY_FP,
-        "ownerKeyPublic": {"typeId": 3, "key": "0x" + _session_pub_bytes.hex()},
-        "ownerFingerprint": _OWNER_FP,
-        "workloadId": _WORKLOAD_ID,
-        "baseImageId": _BASE_IMAGE_ID,
+        "session_id": _hex0x(_SESSION_ID),
+        "session_pubkey": {
+            "type_id": 3,
+            "key": _hex0x(_session_pub_bytes),
+            "fingerprint": _hex0x(_SESSION_KEY_FINGERPRINT),
+        },
     }
 
 
@@ -115,24 +161,25 @@ class Handler(BaseHTTPRequestHandler):
             self.rfile.close()
             self.wfile.close()
 
-    def do_GET(self):
-        if self.path == "/platform":
-            self._json(200, {
-                "teeType": 0, "teeName": "tdx",
-                "cloudType": 3, "cloudName": "qemu",
-                "isEmulation": True,
-            })
-        else:
-            self.send_error(404)
-
     def do_POST(self):
         if self.path == "/sign-message":
             length = int(self.headers.get("Content-Length", 0))
-            body = json.loads(self.rfile.read(length)) if length else {}
             try:
-                self._json(200, _sign_message(body.get("message", "0x")))
+                body = json.loads(self.rfile.read(length)) if length else {}
+            except json.JSONDecodeError as e:
+                self._json(400, {"error": f"malformed JSON: {e}"})
+                return
+            message = body.get("message")
+            if not isinstance(message, str):
+                self._json(400, {"error": "message must be a 0x-prefixed hex string"})
+                return
+            hash_fn = body.get("hash_fn", "keccak256")
+            try:
+                self._json(200, _sign_message(message, hash_fn=hash_fn))
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
             except Exception as e:
-                self._json(500, {"error": str(e)})
+                self._json(503, {"error": str(e)})
         else:
             self.send_error(404)
 
@@ -145,7 +192,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, fmt, *args):
-        print(f"[mock-agent] {fmt % args}")
+        print(f"[mock-portal] {fmt % args}")
 
 
 # ---------------------------------------------------------------------------
@@ -161,9 +208,9 @@ def serve(socket_path):
     sock.listen(5)
     os.chmod(socket_path, 0o777)
 
-    print(f"[mock-agent] listening on {socket_path}")
-    print(f"[mock-agent] session_id:  {_SESSION_ID[:18]}...")
-    print(f"[mock-agent] workload_id: {_WORKLOAD_ID[:18]}...")
+    print(f"[mock-portal] listening on {socket_path}")
+    print(f"[mock-portal] session_id:  {_hex0x(_SESSION_ID)[:18]}...")
+    print(f"[mock-portal] fingerprint: {_hex0x(_SESSION_KEY_FINGERPRINT)[:18]}...")
 
     try:
         while True:
@@ -171,7 +218,7 @@ def serve(socket_path):
             try:
                 Handler(conn, ("localhost", 0), None)
             except Exception as e:
-                print(f"[mock-agent] request error: {e}")
+                print(f"[mock-portal] request error: {e}")
             finally:
                 conn.close()
     except KeyboardInterrupt:

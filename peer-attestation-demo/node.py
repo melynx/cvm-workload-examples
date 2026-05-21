@@ -24,7 +24,7 @@ import protocol
 
 DASHBOARD_PORT = int(os.environ.get("DASHBOARD_PORT", "3000"))
 PEER_PORT = int(os.environ.get("PEER_PORT", "4000"))
-UNMEASURED_CONFIG = "/app/unmeasured-data/peer-config.json"
+UNMEASURED_CONFIG = "/atakit-portal/unmeasured-data/peer-config.json"
 MAX_MESSAGES = 200
 MAX_EVENTS = 100
 MESSAGE_INTERVAL = 10
@@ -244,18 +244,21 @@ def _prepare_local_handshake():
     eph_private, eph_pub_bytes = protocol.generate_ephemeral_keypair()
     eph_pub_hex = "0x" + eph_pub_bytes.hex()
 
-    _add_event("sign", "requesting CVM agent signature on ephemeral key")
+    _add_event("sign", "requesting portal signature on ephemeral key")
     sign_resp = None
     for attempt in range(6):
         try:
-            sign_resp = protocol.agent_sign_message(eph_pub_hex)
+            sign_resp = protocol.portal_sign_message(eph_pub_hex)
             break
-        except RuntimeError as e:
-            if "session not registered" in str(e) and attempt < 5:
+        except protocol.PortalHTTPError as e:
+            # Portal returns 409 Conflict while session context is still
+            # being initialized (see workload-sign-message.md "Endpoint
+            # errors").
+            if e.status == 409 and attempt < 5:
                 delay = 2 * (attempt + 1)
                 _add_event(
                     "wait",
-                    f"agent session not ready, retrying in {delay}s ({attempt + 1}/5)",
+                    f"portal session not ready, retrying in {delay}s ({attempt + 1}/5)",
                 )
                 time.sleep(delay)
             else:
@@ -276,13 +279,14 @@ def _verify_peer_handshake(peer_data, local_info):
     peer_eph_hex = peer_data["ephemeral_public_key"]
     peer_sig = peer_data["signature"]
     peer_info = peer_data["session_info"]
+    hash_fn = peer_info.get("hash_fn", "keccak256")
 
     with _lock:
         STATE.peer_session_info = peer_info
         STATE.peer_eph_pub_hex = peer_eph_hex
 
     sig_ok = protocol.verify_signature(
-        peer_info["session_key_public"], peer_eph_hex, peer_sig
+        peer_info["session_pubkey"], peer_eph_hex, peer_sig, hash_fn=hash_fn
     )
     if not sig_ok:
         raise ValueError("peer signature verification failed")
@@ -431,10 +435,9 @@ def _do_handshake(peer_addr, connect_token):
                 return
             STATE.connection_state = protocol.VERIFYING
 
-        _add_event("verify", "verifying peer signature and session")
+        _add_event("verify", "verifying peer signature")
         peer_eph_hex, peer_info, verification = _verify_peer_handshake(frame, local_info)
-        _add_event("check", "peer signature verified")
-        _add_event("check", "peer session verified (workload + base image match)")
+        _add_event("check", "peer signature verified (workload/base-image binding deferred to chain)")
 
         with _lock:
             if connect_token != STATE._connect_token:
@@ -545,10 +548,9 @@ def _handle_incoming_peer(sock, client_addr):
 
         eph_private, eph_pub_hex, sign_resp, local_info = _prepare_local_handshake()
 
-        _add_event("verify", "incoming: verifying peer signature and session")
+        _add_event("verify", "incoming: verifying peer signature")
         peer_eph_hex, peer_info, verification = _verify_peer_handshake(frame, local_info)
-        _add_event("check", "incoming: peer signature verified")
-        _add_event("check", "incoming: peer session verified")
+        _add_event("check", "incoming: peer signature verified (workload/base-image binding deferred to chain)")
 
         _add_event("key", "incoming: computing ECDH shared secret")
         aes_key = _derive_session_key(eph_private, local_info, peer_info, peer_eph_hex)
@@ -752,6 +754,7 @@ input[type=text] { background: #0d1117; border: 1px solid #30363d; color: #c9d1d
 .btn.danger:hover { background: #f85149; }
 .check-ok { color: #3fb950; }
 .check-fail { color: #f85149; }
+.check-info { color: #58a6ff; }
 .timeline { max-height: 180px; overflow-y: auto; font-size: 11px; }
 .evt { padding: 3px 0; border-bottom: 1px solid #21262d; display: flex; gap: 8px; }
 .evt-time { color: #484f58; min-width: 60px; }
@@ -860,11 +863,11 @@ function syncInputValue(id,value){
 
 function renderSessionInfo(info){
   if(!info) return '<div class="empty">--</div>';
+  const pk = info.session_pubkey || {};
   return `
     <div class="kv"><span class="k">session</span><span class="v mono">${trunc(info.session_id,18)}</span></div>
-    <div class="kv"><span class="k">workload</span><span class="v mono">${trunc(info.workload_id,18)}</span></div>
-    <div class="kv"><span class="k">base image</span><span class="v mono">${trunc(info.base_image_id,18)}</span></div>
-    <div class="kv"><span class="k">session key</span><span class="v mono">${trunc(info.session_key_fingerprint,18)}</span></div>`;
+    <div class="kv"><span class="k">pubkey</span><span class="v mono">${trunc(pk.key,18)}</span></div>
+    <div class="kv"><span class="k">fingerprint</span><span class="v mono">${trunc(pk.fingerprint,18)}</span></div>`;
 }
 
 function render(st){
@@ -933,9 +936,17 @@ function render(st){
   if(st.verification){
     let h='';
     for(const c of st.verification.checks){
-      const icon=c.passed?'<span class="check-ok">✓</span>':'<span class="check-fail">✗</span>';
+      let icon;
+      if(c.kind==='info') icon='<span class="check-info">ⓘ</span>';
+      else if(c.passed) icon='<span class="check-ok">✓</span>';
+      else icon='<span class="check-fail">✗</span>';
+      const value=c.value||(c.kind==='info'?'':(c.passed?'match':'MISMATCH'));
       h+=`<div class="kv"><span class="k">${icon} ${esc(c.name)}</span>`+
-        `<span class="v mono">${c.passed?'match':'MISMATCH'}</span></div>`;
+        `<span class="v mono">${esc(value)}</span></div>`;
+    }
+    if(st.verification.note){
+      h+=`<div class="kv" style="margin-top:6px;"><span class="k">note</span>`+
+        `<span class="v" style="max-width:70%;">${esc(st.verification.note)}</span></div>`;
     }
     ac.innerHTML=h;
   } else ac.innerHTML='';

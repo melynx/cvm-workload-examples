@@ -1,8 +1,12 @@
-"""CVM agent client, cryptographic utilities, and peer verification logic.
+"""CVM portal client, cryptographic utilities, and peer verification logic.
 
-Uses the CVM agent's /sign-message endpoint (secp256k1 session key, keccak256-
-prehashed) for identity. Ephemeral secp256k1 keys provide ECDH key agreement.
-AES-256-GCM encrypts the channel.
+Uses the workload-facing UDS endpoint `POST /sign-message` (secp256k1 session
+key) for identity. Signing is keccak256(DOMAIN || message) with
+DOMAIN = "ATAKIT_SESSION_SIGN_V1" per
+atakit-portal/docs/workload-sign-message.md.
+
+Ephemeral secp256k1 keys provide ECDH key agreement; AES-256-GCM encrypts the
+channel.
 
 Dependencies: cryptography, pycryptodome (for keccak256).
 """
@@ -24,7 +28,11 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 # Constants
 # ---------------------------------------------------------------------------
 
-AGENT_SOCKET = os.environ.get("AGENT_SOCKET", "/app/cvm-agent.sock")
+AGENT_SOCKET = os.environ.get("AGENT_SOCKET", "/run/atakit-portal.sock")
+
+# Domain separator the portal prepends before hashing. Must match
+# SIGN_MESSAGE_DOMAIN in atakit-portal/crates/atakit-portal-api/src/workload.rs.
+SIGN_MESSAGE_DOMAIN = b"ATAKIT_SESSION_SIGN_V1"
 
 # Connection state machine
 DISCONNECTED = "disconnected"
@@ -53,8 +61,17 @@ class _UnixHTTPConnection(http.client.HTTPConnection):
         self.sock.connect(self._socket_path)
 
 
-def _agent_request(method, path, body=None):
-    """Send an HTTP request to the CVM agent via Unix socket."""
+class PortalHTTPError(RuntimeError):
+    """Raised when the portal returns a non-2xx response."""
+
+    def __init__(self, method, path, status, body):
+        self.status = status
+        self.body = body
+        super().__init__(f"portal {method} {path} returned {status}: {body}")
+
+
+def _portal_request(method, path, body=None):
+    """Send an HTTP request to the portal via the workload UDS."""
     conn = _UnixHTTPConnection(AGENT_SOCKET)
     headers = {"Content-Type": "application/json"} if body else {}
     payload = json.dumps(body).encode() if body else None
@@ -62,31 +79,25 @@ def _agent_request(method, path, body=None):
     resp = conn.getresponse()
     data = resp.read()
     if resp.status >= 400:
-        raise RuntimeError(
-            f"CVM agent {method} {path} returned {resp.status}: {data.decode()}"
-        )
+        raise PortalHTTPError(method, path, resp.status, data.decode(errors="replace"))
     return json.loads(data)
 
 
 # ---------------------------------------------------------------------------
-# CVM agent operations
+# Portal operations
 # ---------------------------------------------------------------------------
 
-def agent_sign_message(message_hex: str) -> dict:
+def portal_sign_message(message_hex: str) -> dict:
     """POST /sign-message -- sign with the session key.
 
     Args:
-        message_hex: "0x"-prefixed hex-encoded message bytes.
+        message_hex: "0x"-prefixed hex of the bytes to sign. The portal will
+        compute keccak256(DOMAIN || message) and sign that digest.
 
-    Returns dict with: signature, sessionId, sessionKeyPublic, sessionKeyFingerprint,
-    ownerKeyPublic, ownerFingerprint, workloadId, baseImageId.
+    Returns dict with: hash_fn, message_hash, signature, session_id,
+    session_pubkey: {type_id, key, fingerprint}.
     """
-    return _agent_request("POST", "/sign-message", {"message": message_hex})
-
-
-def agent_get_platform() -> dict:
-    """GET /platform -- TEE type and cloud provider."""
-    return _agent_request("GET", "/platform")
+    return _portal_request("POST", "/sign-message", {"message": message_hex})
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +108,19 @@ def keccak256(data: bytes) -> bytes:
     k = _keccak.new(digest_bits=256)
     k.update(data)
     return k.digest()
+
+
+def sign_message_digest(message_bytes: bytes, hash_fn: str = "keccak256") -> bytes:
+    """Compute message_hash = hash_fn(DOMAIN || message_bytes).
+
+    Mirrors atakit-portal-api/src/workload.rs::hash_message.
+    """
+    payload = SIGN_MESSAGE_DOMAIN + message_bytes
+    if hash_fn == "keccak256":
+        return keccak256(payload)
+    if hash_fn == "sha256":
+        return hashlib.sha256(payload).digest()
+    raise ValueError(f"unsupported hash_fn: {hash_fn}")
 
 
 # ---------------------------------------------------------------------------
@@ -121,21 +145,29 @@ def generate_ephemeral_keypair():
 # Signature verification
 # ---------------------------------------------------------------------------
 
-def verify_signature(session_key_public: dict, message_hex: str, signature_hex: str) -> bool:
-    """Verify the CVM agent's ECDSA-secp256k1 signature.
+def verify_signature(
+    session_pubkey: dict,
+    message_hex: str,
+    signature_hex: str,
+    hash_fn: str = "keccak256",
+) -> bool:
+    """Verify the portal's ECDSA-secp256k1 signature.
 
-    The agent signs keccak256(message_bytes) where message_bytes is the raw
-    bytes of the hex-encoded message. The signature is Ethereum-style:
-    r (32 bytes) + s (32 bytes) + v (1 byte).
+    The portal signs `hash_fn(DOMAIN || message_bytes)` where message_bytes is
+    the raw bytes of the hex-encoded message. The signature is Ethereum-style:
+    r (32 bytes) + s (32 bytes) + v (1 byte). We discard v here -- ECDSA
+    verification only needs (r, s).
 
     Args:
-        session_key_public: {"typeId": 3, "key": "0x04..."} from agent response.
-        message_hex: The "0x"-prefixed hex string that was passed to /sign-message.
-        signature_hex: "0x"-prefixed signature from agent.
+        session_pubkey: {"type_id": 3, "key": "0x04..."} from response.
+        message_hex: The "0x"-prefixed hex that was passed to /sign-message.
+        signature_hex: "0x"-prefixed 65-byte signature from the portal.
+        hash_fn: "keccak256" (default) or "sha256". Must match the portal's
+            response `hash_fn`.
 
     Returns True if valid.
     """
-    key_bytes = bytes.fromhex(session_key_public["key"][2:])
+    key_bytes = bytes.fromhex(session_pubkey["key"][2:])
     pub_key = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256K1(), key_bytes)
 
     sig_bytes = bytes.fromhex(signature_hex[2:])
@@ -143,10 +175,12 @@ def verify_signature(session_key_public: dict, message_hex: str, signature_hex: 
     s = int.from_bytes(sig_bytes[32:64], "big")
     der_sig = ec_utils.encode_dss_signature(r, s)
 
-    # The agent keccak256-hashes the raw bytes of the hex string before signing.
     message_bytes = bytes.fromhex(message_hex[2:])
-    digest = keccak256(message_bytes)
+    digest = sign_message_digest(message_bytes, hash_fn)
 
+    # cryptography uses the hash algorithm only to know the expected digest
+    # length (32 bytes). Keccak256 and SHA-256 both produce 32 bytes, so the
+    # Prehashed(SHA256()) shim accepts a keccak256 digest unchanged.
     try:
         pub_key.verify(
             der_sig,
@@ -224,49 +258,58 @@ def decrypt_message(encrypted: dict, key: bytes) -> str:
 # ---------------------------------------------------------------------------
 
 def parse_session_info(sign_response: dict) -> dict:
-    """Normalize the /sign-message response into a session_info dict."""
+    """Normalize the /sign-message response into a session_info dict.
+
+    The /sign-message response no longer carries workload_id or
+    base_image_id -- those live on-chain in SessionRegistry.getSession.
+    See README "On-chain verification".
+    """
     return {
-        "session_id": sign_response["sessionId"],
-        "session_key_public": sign_response["sessionKeyPublic"],
-        "session_key_fingerprint": sign_response["sessionKeyFingerprint"],
-        "workload_id": sign_response["workloadId"],
-        "base_image_id": sign_response["baseImageId"],
+        "session_id": sign_response["session_id"],
+        "session_pubkey": sign_response["session_pubkey"],
+        "hash_fn": sign_response.get("hash_fn", "keccak256"),
     }
 
 
 def verify_peer_session(peer_info: dict, local_info: dict) -> dict:
-    """Verify that a peer belongs to the same workload.
+    """Build the dashboard's verification panel data.
 
-    Checks workload_id and base_image_id. In production you would also query
-    SessionRegistry.getSession(peer.session_id) on-chain and call
-    verifySessionSignature to confirm the session is active.
+    What we can prove locally with /sign-message alone: the peer holds the
+    private key for the session_pubkey they presented (signature already
+    verified by the caller). Confirming the peer's session_id binds to OUR
+    workload + baseimage requires an on-chain SessionRegistry.getSession
+    query -- see README "On-chain verification".
 
-    Returns {"verified": bool, "checks": [{"name", "passed", "local", "remote"}]}.
+    The "Peer Signature" row reflects an actual check. The Session ID and
+    Session Key rows are informational (`kind == "info"`): they surface the
+    values the dashboard's Local/Remote Session panels also display, but
+    nothing is compared here -- alpha and beta intentionally have
+    different session IDs and fingerprints.
+
+    Returns the same shape the dashboard expects: {verified, checks[]}.
     """
-    checks = []
-    for field, label in [
-        ("workload_id", "Workload ID"),
-        ("base_image_id", "Base Image"),
-    ]:
-        local_val = local_info.get(field, "")
-        remote_val = peer_info.get(field, "")
-        checks.append({
-            "name": label,
-            "passed": local_val == remote_val,
-            "local": local_val,
-            "remote": remote_val,
-        })
-
-    # Session key fingerprint: just display, not a pass/fail check
-    checks.append({
-        "name": "Session Key",
-        "passed": True,  # informational
-        "local": local_info.get("session_key_fingerprint", ""),
-        "remote": peer_info.get("session_key_fingerprint", ""),
-    })
+    checks = [
+        {
+            "name": "Peer Signature",
+            "passed": True,
+            "value": "verified",
+        },
+        {
+            "name": "Session ID",
+            "kind": "info",
+            "value": "see Local/Remote panels",
+        },
+        {
+            "name": "Session Key",
+            "kind": "info",
+            "value": "see Local/Remote panels",
+        },
+    ]
 
     return {
-        "verified": all(c["passed"] for c in checks[:2]),
+        "verified": True,
+        "mode": "local-signature-only",
+        "note": "Workload + base-image binding requires SessionRegistry.getSession",
         "checks": checks,
     }
 
