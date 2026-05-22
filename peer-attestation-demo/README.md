@@ -107,7 +107,7 @@ atakit workload build -d .
 
 # Deploy alpha (uses alpha/peer-config.json verbatim).
 atakit cloud deploy -d . --unmeasured-data-dir alpha \
-    --target <target> --name peer-demo-alpha
+    --target <target> --image <base-image>:<version> --name peer-demo-alpha
 
 # Get alpha's external IP.
 atakit cloud status peer-demo-alpha --target <target>
@@ -115,7 +115,7 @@ atakit cloud status peer-demo-alpha --target <target>
 # Edit beta/peer-config.json: replace "<alpha-ip>" with the value above,
 # then deploy beta (which will auto-connect to alpha after startup).
 atakit cloud deploy -d . --unmeasured-data-dir beta \
-    --target <target> --name peer-demo-beta --skip-freshness-check
+    --target <target> --image <base-image>:<version> --name peer-demo-beta --skip-freshness-check
 ```
 
 `--unmeasured-data-dir` resolves each entry declared in
