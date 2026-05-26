@@ -27,8 +27,8 @@ A single non-root user is provisioned in the image:
 | Password | `user` |
 | sudo     | `NOPASSWD: ALL` |
 
-Host SSH keys are generated at build time via `ssh-keygen -A`. Each rebuilt
-archive will have fresh host keys.
+Host SSH keys were baked into the archive at build time via `ssh-keygen -A`, so
+every instance launched from this published archive shares the same host keys.
 
 ### Ports
 
@@ -51,19 +51,17 @@ Extra firewall rules opened beyond the port-mapped set (see
   via the portal's `/baby-container/*` API.
 - No measured-data, no unmeasured-data, no persistent disks, no portal socket.
 
-## Build
+## Pull & deploy
+
+See the [repo README](../README.md) for one-time setup (configuring this repo
+as a workload repository, a cloud target, and a base image).
 
 ```bash
-atakit workload build -d .
-```
+# Download the pre-built, on-chain-published archive into your local store.
+atakit workload pull fedora-oci:v0.0.10
 
-This produces `fedora-oci-v0.0.8.atawl` in the directory.
-
-## Deploy
-
-```bash
 # Deploy to a configured cloud target.
-atakit cloud deploy fedora-oci:v0.0.8 \
+atakit cloud deploy fedora-oci:v0.0.10 \
     --image <base-image>:<version> --target <target> --name fedora-oci
 
 # Get the external IP.
@@ -100,12 +98,8 @@ jq --version
 
 ## Notes
 
-- The image is large (~200 MB archive) because the package list above is
-  comprehensive. Trim the `dnf install` block in `Containerfile` if you want a
-  smaller measurement footprint.
+- The archive is large (~200 MB) because the package list above is
+  comprehensive.
 - SSH uses **password auth** by default. For anything other than throwaway
-  poking, swap in a public-key flow: bake an `authorized_keys` file in via
-  `measured-data`, or provide it at deploy time via `unmeasured-data`.
-- Bumping `[workload] version` rebuilds the on-chain workload id
-  (`keccak256(name || version)`), so existing CVM sessions for older
-  versions won't match the new measurement.
+  poking, provide an `authorized_keys` file at deploy time via
+  `unmeasured-data` and use key-based login.

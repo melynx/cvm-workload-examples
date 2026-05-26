@@ -31,17 +31,17 @@ Demonstrates a multi-container workload with three containers sharing a persiste
 - **Per-container environment** variables (`WORKER_NAME`, `WORKER_PORT`)
 - **Single build context** with multiple Containerfiles
 
-## Build
+## Pull & deploy
+
+See the [repo README](../README.md) for one-time setup (configuring this repo
+as a workload repository, a cloud target, and a base image).
 
 ```bash
-atakit workload build -d .
-```
+# Download the pre-built, on-chain-published archive into your local store.
+atakit workload pull multi-container-example:v0.2.0
 
-## Deploy
-
-```bash
 # Deploy to a configured cloud target (one-shot per CVM /init).
-atakit cloud deploy multi-container-example:v0.1.0 \
+atakit cloud deploy multi-container-example:v0.2.0 \
     --image <base-image>:<version> --target <target>
 
 # Get the external IP.

@@ -95,18 +95,27 @@ workload-binding checks are deferred to a production deployment.
 
 ## Deploy to CVMs
 
-The repo ships per-instance `peer-config.json` files under `alpha/` and
-`beta/`. Pass the directory to `--unmeasured-data-dir` so the CLI picks up
-the right config without overwriting anything at the workload root.
+Both instances run the **same** pulled archive (same PCR23). Per-instance
+config (node name, peer address) is supplied at deploy time via
+`--unmeasured-data-dir`. This repo ships ready-made `peer-config.json` files
+under `alpha/` and `beta/`, so run these commands from your checkout of this
+directory (or point the flag at your own directory containing a
+`peer-config.json`).
+
+See the [repo README](../README.md) for one-time setup (configuring this repo
+as a workload repository, a cloud target, and a base image).
 
 ```bash
+# Pull the pre-built, on-chain-published archive into your local store.
+atakit workload pull peer-attestation-demo:v0.0.1-alpha7
+
+# Run from this directory so alpha/ and beta/ resolve.
+# (If you don't have the repo checked out:
+#   git clone https://github.com/melynx/cvm-workload-examples)
 cd cvm-workload-examples/peer-attestation-demo
 
-# Build the archive (same for both instances).
-atakit workload build -d .
-
 # Deploy alpha (uses alpha/peer-config.json verbatim).
-atakit cloud deploy -d . --unmeasured-data-dir alpha \
+atakit cloud deploy peer-attestation-demo:v0.0.1-alpha7 --unmeasured-data-dir alpha \
     --target <target> --image <base-image>:<version> --name peer-demo-alpha
 
 # Get alpha's external IP.
@@ -114,8 +123,8 @@ atakit cloud status peer-demo-alpha --target <target>
 
 # Edit beta/peer-config.json: replace "<alpha-ip>" with the value above,
 # then deploy beta (which will auto-connect to alpha after startup).
-atakit cloud deploy -d . --unmeasured-data-dir beta \
-    --target <target> --image <base-image>:<version> --name peer-demo-beta --skip-freshness-check
+atakit cloud deploy peer-attestation-demo:v0.0.1-alpha7 --unmeasured-data-dir beta \
+    --target <target> --image <base-image>:<version> --name peer-demo-beta
 ```
 
 `--unmeasured-data-dir` resolves each entry declared in
