@@ -38,10 +38,10 @@ as a workload repository, a cloud target, and a base image).
 
 ```bash
 # Download the pre-built, on-chain-published archive into your local store.
-atakit workload pull multi-container-example:v0.2.0
+atakit workload pull multi-container-example:v0.5.0
 
 # Deploy to a configured cloud target (one-shot per CVM /init).
-atakit cloud deploy multi-container-example:v0.2.0 \
+atakit cloud deploy multi-container-example:v0.5.0 \
     --image <base-image>:<version> --target <target>
 
 # Get the external IP.

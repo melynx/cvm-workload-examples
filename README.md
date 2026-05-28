@@ -16,9 +16,8 @@ and any per-example deploy flags.
 
 ## Prerequisites
 
-- The `atakit` CLI installed (see [atakit-ng](../atakit-ng)).
-- A cloud target (GCP or Azure) configured under `[cloud.targets.*]` in
-  `~/.config/atakit/config.toml`.
+- The `atakit` CLI installed (see [atakit-ng](https://github.com/automata-network/atakit/tree/atakit-ng)).
+- A cloud target (GCP or Azure) configured under `[cloud.targets.*]` in `~/.config/atakit/config.toml`.
 - A base image available locally, e.g.:
 
   ```bash
