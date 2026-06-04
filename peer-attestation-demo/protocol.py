@@ -16,6 +16,7 @@ import http.client
 import json
 import os
 import socket
+import urllib.request
 
 from Crypto.Hash import keccak as _keccak
 from cryptography.hazmat.primitives import hashes, serialization
@@ -323,3 +324,149 @@ def make_hkdf_salt(session_id_a: str, session_id_b: str) -> bytes:
     """Deterministic salt from both session IDs (sorted for consistency)."""
     ids = sorted([session_id_a, session_id_b])
     return hashlib.sha256((ids[0] + ids[1]).encode()).digest()
+
+
+# ---------------------------------------------------------------------------
+# On-chain verification
+# ---------------------------------------------------------------------------
+#
+# The workload itself confirms a connected peer is genuine: it queries the
+# SessionRegistry on-chain (getSession / isSessionActive) and the
+# BaseImageRegistry (getPlatformProfile) over a plain JSON-RPC endpoint, with
+# no web3 dependency. The peer is trusted only if its session is registered,
+# active, and bound to the SAME workload + base image as ours. See README
+# "On-chain verification". RPC endpoint + registry addresses are operator
+# inputs (dashboard), defaulting to the deployment's chain.
+
+_SEL_GET_SESSION = "0x39b240bd"   # getSession(bytes32)
+_SEL_IS_ACTIVE = "0xee8866c1"     # isSessionActive(bytes32)
+_SEL_GET_PROFILE = "0xed4f7320"   # getPlatformProfile(bytes32)
+
+
+class OnChainError(Exception):
+    """Transport/RPC failure (not a contract revert)."""
+
+
+def _eth_call(rpc_url, to, data):
+    """JSON-RPC eth_call. Returns the 0x result, or None if the call reverted
+    (e.g. SessionNotFound). Raises OnChainError on transport failure."""
+    body = json.dumps({
+        "jsonrpc": "2.0", "id": 1, "method": "eth_call",
+        "params": [{"to": to, "data": data}, "latest"],
+    }).encode()
+    req = urllib.request.Request(
+        rpc_url, body,
+        {"Content-Type": "application/json", "User-Agent": "atakit-peer-demo/1.0"},
+    )
+    try:
+        resp = json.loads(urllib.request.urlopen(req, timeout=20).read())
+    except Exception as e:
+        raise OnChainError(f"RPC call to {rpc_url} failed: {e}")
+    if "error" in resp:
+        return None  # contract revert (SessionNotFound, etc.)
+    return resp.get("result")
+
+
+def _words(hexstr):
+    h = hexstr[2:]
+    return [h[i:i + 64] for i in range(0, len(h), 64)]
+
+
+def fetch_session(rpc_url, registry, session_id):
+    """SessionRegistry.getSession -> CVMSession dict, or None if unregistered."""
+    r = _eth_call(rpc_url, registry, _SEL_GET_SESSION + session_id[2:])
+    if not r or len(r) < 2 + 9 * 64:
+        return None
+    w = _words(r)
+    return {
+        "ak_fingerprint": "0x" + w[0],
+        "tpm_signing_fingerprint": "0x" + w[1],
+        "session_key_fingerprint": "0x" + w[2],
+        "base_image_id": "0x" + w[3],
+        "workload_id": "0x" + w[4],
+        "platform_profile_id": "0x" + w[5],
+        "variant_id": "0x" + w[6],
+        "registered_at": int(w[7], 16),
+        "expires_at": int(w[8], 16),
+    }
+
+
+def session_is_active(rpc_url, registry, session_id):
+    r = _eth_call(rpc_url, registry, _SEL_IS_ACTIVE + session_id[2:])
+    return bool(r and int(r, 16) != 0)
+
+
+def fetch_profile_name(rpc_url, base_image_registry, profile_id):
+    """BaseImageRegistry.getPlatformProfile -> profile.name (e.g. 'gcp-tdx')."""
+    if not profile_id or not base_image_registry or set(profile_id[2:]) == {"0"}:
+        return None
+    r = _eth_call(rpc_url, base_image_registry, _SEL_GET_PROFILE + profile_id[2:])
+    if not r:
+        return None
+    h = r[2:]
+    try:
+        struct_off = int(h[0:64], 16)
+        name_off = int(h[struct_off * 2:struct_off * 2 + 64], 16)
+        pos = struct_off + name_off
+        nlen = int(h[pos * 2:pos * 2 + 64], 16)
+        return bytes.fromhex(h[(pos + 32) * 2:(pos + 32) * 2 + nlen * 2]).decode()
+    except Exception:
+        return None
+
+
+def split_profile_name(name):
+    """'gcp-tdx' -> ('gcp','tdx'); 'azure-sev-snp' -> ('azure','sev-snp')."""
+    if not name or "-" not in name:
+        return (name or "", "")
+    cloud, _, tee = name.partition("-")
+    return (cloud, tee)
+
+
+def _session_view(rpc_url, session_registry, base_image_registry, session_id):
+    """Full on-chain view of one session for the dashboard."""
+    if not session_id:
+        return None
+    session = fetch_session(rpc_url, session_registry, session_id)
+    view = {
+        "session_id": session_id,
+        "registered": session is not None,
+        "active": session_is_active(rpc_url, session_registry, session_id),
+    }
+    if session:
+        name = fetch_profile_name(rpc_url, base_image_registry, session["platform_profile_id"])
+        cloud, tee = split_profile_name(name)
+        view.update(session)
+        view["platform_profile_name"] = name
+        view["cloud"] = cloud
+        view["tee"] = tee
+    return view
+
+
+def verify_peer_onchain(rpc_url, session_registry, base_image_registry,
+                        local_session_id, peer_session_id):
+    """Workload's on-chain peer check: the connected peer's session must be
+    registered, active, and bound to the SAME workload + base image as ours."""
+    result = {
+        "rpc_url": rpc_url,
+        "session_registry": session_registry,
+        "base_image_registry": base_image_registry,
+        "local": None, "peer": None, "checks": [], "verified": False, "error": None,
+    }
+    try:
+        local = _session_view(rpc_url, session_registry, base_image_registry, local_session_id)
+        peer = _session_view(rpc_url, session_registry, base_image_registry, peer_session_id)
+    except OnChainError as e:
+        result["error"] = str(e)
+        return result
+    result["local"] = local
+    result["peer"] = peer
+    same_wl = bool(peer and local and peer.get("workload_id") == local.get("workload_id"))
+    same_bi = bool(peer and local and peer.get("base_image_id") == local.get("base_image_id"))
+    result["checks"] = [
+        {"name": "Peer Registered", "passed": bool(peer and peer.get("registered"))},
+        {"name": "Peer Active", "passed": bool(peer and peer.get("active"))},
+        {"name": "Same Workload", "passed": same_wl},
+        {"name": "Same Base Image", "passed": same_bi},
+    ]
+    result["verified"] = bool(peer_session_id) and all(c["passed"] for c in result["checks"])
+    return result
