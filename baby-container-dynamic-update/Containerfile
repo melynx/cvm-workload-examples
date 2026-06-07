@@ -1,0 +1,11 @@
+FROM python:3.12-alpine
+
+WORKDIR /app
+COPY dashboard.py .
+
+ENV DASHBOARD_PORT=3000
+ENV BABY_SLOT=forex-worker
+ENV PORTAL_SOCKET=/run/atakit-portal.sock
+
+EXPOSE 3000
+CMD ["python", "dashboard.py"]

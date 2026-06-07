@@ -1,0 +1,10 @@
+FROM python:3.12-alpine
+
+WORKDIR /baby
+COPY forex_worker.py .
+
+ENV BABY_VERSION=v2
+ENV FOREX_PAIR=USD/SGD
+ENV FOREX_INTERVAL=15
+
+CMD ["python", "forex_worker.py"]

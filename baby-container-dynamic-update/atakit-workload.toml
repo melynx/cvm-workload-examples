@@ -1,0 +1,65 @@
+# Baby-container dynamic update example.
+#
+# The measured workload is only the dashboard/API service below. It declares
+# baby-container slots, then accepts helper image uploads at runtime and
+# forwards them to the portal over /run/atakit-portal.sock.
+
+format = 2
+
+[workload]
+name = "baby-container-dynamic-update"
+version = "v0.1.1"
+base-image-mode = "blacklist"
+image = { build = ".", containerfile = "Containerfile" }
+ports = ["3000:3000/tcp"]
+restart = "unless-stopped"
+atakit-portal = true
+gid-group = "dashboard"
+
+[workload.environment]
+DASHBOARD_PORT = "3000"
+BABY_SLOT = "forex-worker"
+BABY_SLOTS = "forex-worker,forex-worker-alt"
+PORTAL_SOCKET = "/run/atakit-portal.sock"
+
+[baby-container]
+enabled = true
+max-instances = 3
+
+[baby-container.slots.forex-worker]
+parent-service = "baby-container-dynamic-update"
+gid-group = "dashboard"
+image-selection = "single"
+max-instances = 2
+
+[baby-container.slots.forex-worker.lifecycle]
+image-retention = "session"
+instance-retention = "ephemeral"
+restart = "manual"
+rootfs = "read-only"
+
+[baby-container.slots.forex-worker.logging]
+driver = "k8s-file"
+
+[baby-container.slots.forex-worker.logging.options]
+max-size = "5m"
+max-file = "2"
+
+[baby-container.slots.forex-worker-alt]
+parent-service = "baby-container-dynamic-update"
+gid-group = "dashboard"
+image-selection = "single"
+max-instances = 1
+
+[baby-container.slots.forex-worker-alt.lifecycle]
+image-retention = "session"
+instance-retention = "ephemeral"
+restart = "manual"
+rootfs = "read-only"
+
+[baby-container.slots.forex-worker-alt.logging]
+driver = "k8s-file"
+
+[baby-container.slots.forex-worker-alt.logging.options]
+max-size = "5m"
+max-file = "2"

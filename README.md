@@ -9,6 +9,7 @@ Releases** — so you don't need to build or publish anything.
 | [fedora-oci](fedora-oci/) | Fedora shell-in box with SSH and a broad debugging/networking toolset |
 | [multi-container-example](multi-container-example/) | 3 containers sharing a persistent disk + inter-container networking |
 | [peer-attestation-demo](peer-attestation-demo/) | Two CVMs attest each other and talk over an encrypted channel |
+| [baby-container-dynamic-update](baby-container-dynamic-update/) | Workload-owned baby-container image upload/update dashboard |
 
 The steps below are common to every example. Each example's own README only
 covers how to exercise it once it's running, plus its exact workload reference
