@@ -42,6 +42,8 @@ MAX_EVENTS = 100
 MESSAGE_INTERVAL = 10
 MAX_CONSECUTIVE_FAILURES = 3
 CONNECT_TIMEOUT = 10
+AUTO_CONNECT_INITIAL_DELAY = 5
+AUTO_CONNECT_RETRY_DELAY = 10
 
 
 # ---------------------------------------------------------------------------
@@ -531,8 +533,10 @@ def connect_to_peer(peer_addr):
         return
 
     with _lock:
-        if STATE.connection_state != protocol.DISCONNECTED:
+        if STATE.connection_state not in (protocol.DISCONNECTED, protocol.ERROR):
             return
+        if STATE.connection_state == protocol.ERROR:
+            _reset_connection()
         STATE.peer_addr = normalized_peer_addr
         STATE.connection_state = protocol.HANDSHAKE
         STATE._connect_token += 1
@@ -1340,11 +1344,19 @@ def main():
     threading.Thread(target=_serve_peer_listener, daemon=True).start()
 
     if auto_peer:
-        print(f"[{name}] auto-connecting to {auto_peer} in 5s...")
+        print(
+            f"[{name}] auto-connecting to {auto_peer} in "
+            f"{AUTO_CONNECT_INITIAL_DELAY}s..."
+        )
 
         def _auto():
-            time.sleep(5)
-            connect_to_peer(auto_peer)
+            time.sleep(AUTO_CONNECT_INITIAL_DELAY)
+            while True:
+                with _lock:
+                    current_state = STATE.connection_state
+                if current_state in (protocol.DISCONNECTED, protocol.ERROR):
+                    connect_to_peer(auto_peer)
+                time.sleep(AUTO_CONNECT_RETRY_DELAY)
 
         threading.Thread(target=_auto, daemon=True).start()
 
