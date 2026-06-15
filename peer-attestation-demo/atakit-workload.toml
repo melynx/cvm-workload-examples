@@ -16,17 +16,24 @@ unmeasured-data = ["./peer-config.json"]
 
 [workload]
 name = "peer-attestation-demo"
-version = "v0.0.1-alpha8"
+version = "v0.0.1-alpha9"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000", "4000:4000"]
 restart = "unless-stopped"
 atakit-portal = true
 unmeasured-data = true
+workload-logs = true
 
 [workload.environment]
 DASHBOARD_PORT = "3000"
 PEER_PORT = "4000"
+ONCHAIN_RPC_URL = "http://139.99.100.76:8545"
+SESSION_REGISTRY = "0xB247950fBBFCE245641e433AFd7d8884328CE5A1"
+BASE_IMAGE_REGISTRY = "0xCbe56f9B73c822679Cf36DcF8D99434E0f1588Ca"
+
+[workload.logging]
+log-readers = ["peer-attestation-demo"]
 
 [firewall]
 allow = ["3000/tcp", "4000/tcp"]
