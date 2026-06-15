@@ -16,7 +16,7 @@ unmeasured-data = ["./peer-config.json"]
 
 [workload]
 name = "peer-attestation-demo"
-version = "v0.0.1-alpha9"
+version = "v0.0.2"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000", "4000:4000"]

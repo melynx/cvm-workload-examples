@@ -22,7 +22,17 @@ for version in v1 v2; do
   image="atakit-baby-forex:${version}"
   context="${ROOT}/baby-${version}"
   tar="${DIST}/baby-forex-${version}.tar"
+  tmp="${tar}.tmp"
   "$ENGINE" build -t "$image" -f "${context}/Containerfile" "$context"
-  "$ENGINE" save -o "$tar" "$image"
+  rm -f "$tmp"
+  case "${ENGINE##*/}" in
+    podman)
+      "$ENGINE" save --format docker-archive -o "$tmp" "$image"
+      ;;
+    *)
+      "$ENGINE" save -o "$tmp" "$image"
+      ;;
+  esac
+  mv "$tmp" "$tar"
   echo "$tar"
 done

@@ -157,7 +157,7 @@ INDEX_HTML = """<!doctype html>
         <h2>Runtime Update</h2>
         <div class="kv">
           <div class="key">Slot</div><div class="value"><code id="slotName">forex-worker</code></div>
-          <div class="key">Upload format</div><div class="value">raw <code>podman save</code> tar</div>
+          <div class="key">Upload format</div><div class="value">Docker archive image tar</div>
         </div>
         <div style="margin-top:14px">
           <input id="imageFile" type="file" accept=".tar,application/x-tar,application/octet-stream">

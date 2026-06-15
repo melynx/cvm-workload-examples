@@ -11,7 +11,7 @@ inside the parent service.
 browser / curl
     |
     |  GET / dashboard
-    |  POST /api/upload    raw podman-save tar
+    |  POST /api/upload    Docker archive image tar
     |  POST /api/create
     v
 dashboard parent service (:3000)
@@ -60,7 +60,7 @@ atakit workload build -d .
 Then deploy as usual:
 
 ```bash
-atakit cloud deploy baby-container-dynamic-update:v0.1.1 \
+atakit cloud deploy baby-container-dynamic-update:v0.1.2 \
   --image <base-image>:<version> \
   --target <target>
 ```
@@ -76,7 +76,7 @@ client side and upload them through the running dashboard:
 ./scripts/build-baby-images.sh
 ```
 
-This creates:
+This creates Docker archive image tars:
 
 ```text
 dist/baby-forex-v1.tar

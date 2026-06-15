@@ -58,10 +58,10 @@ as a workload repository, a cloud target, and a base image).
 
 ```bash
 # Download the pre-built, on-chain-published archive into your local store.
-atakit workload pull fedora-oci:v0.0.12
+atakit workload pull fedora-oci:v0.0.13
 
 # Deploy to a configured cloud target.
-atakit cloud deploy fedora-oci:v0.0.12 \
+atakit cloud deploy fedora-oci:v0.0.13 \
     --image <base-image>:<version> --target <target> --name fedora-oci
 
 # Get the external IP.

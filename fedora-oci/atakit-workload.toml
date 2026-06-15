@@ -36,7 +36,7 @@ format = 2
 # name: alphanumeric + hyphens, must not start with a hyphen.
 # version: must start with "v", followed by alphanumeric/.-_ chars.
 name = "fedora-oci"
-version = "v0.0.12"
+version = "v0.0.13"
 
 # ── on-chain parameters ──────────────────────────────────────────
 #
