@@ -16,7 +16,7 @@ unmeasured-data = ["./peer-config.json"]
 
 [workload]
 name = "peer-attestation-demo"
-version = "v0.0.2"
+version = "v0.0.3"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000", "4000:4000"]
@@ -28,7 +28,7 @@ workload-logs = true
 [workload.environment]
 DASHBOARD_PORT = "3000"
 PEER_PORT = "4000"
-ONCHAIN_RPC_URL = "http://139.99.100.76:8545"
+ONCHAIN_RPC_URL = "https://ethereum-hoodi-rpc.publicnode.com"
 SESSION_REGISTRY = "0xB247950fBBFCE245641e433AFd7d8884328CE5A1"
 BASE_IMAGE_REGISTRY = "0xCbe56f9B73c822679Cf36DcF8D99434E0f1588Ca"
 
