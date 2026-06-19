@@ -1,81 +1,333 @@
 # CVM Workload Examples
 
-Ready-to-run workloads for Confidential VMs. Each example
-is already **built, published on-chain, and uploaded to this repo's GitHub
-Releases** — so you don't need to build or publish anything. 
+Ready-to-run workloads for Confidential VMs. Published examples are built,
+registered on Hoodi, and attached to this repo's GitHub Releases, so you can
+pull and deploy them without rebuilding. Local examples can be built from source
+with `atakit workload build`.
 
-| Example | What it demonstrates |
-|---------|----------------------|
-| [fedora-oci](fedora-oci/) | Fedora shell-in box with SSH and a broad debugging/networking toolset |
-| [multi-container-example](multi-container-example/) | 3 containers sharing a persistent disk + inter-container networking |
-| [peer-attestation-demo](peer-attestation-demo/) | Two CVMs attest each other and talk over an encrypted channel |
-| [baby-container-dynamic-update](baby-container-dynamic-update/) | Workload-owned baby-container image upload/update dashboard |
+| Example | Version | What it demonstrates |
+| --- | --- | --- |
+| [fedora-oci](fedora-oci/) | `v0.0.13` | Fedora shell-in box with SSH and debugging/networking tools |
+| [multi-container-example](multi-container-example/) | `v0.5.1` | Three containers sharing a persistent disk and container network |
+| [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.3` | Workload-owned baby-container image upload/update dashboard |
+| [peer-attestation-demo](peer-attestation-demo/) | `v0.0.3` | Two CVMs verify each other and communicate over an encrypted channel |
+| [iperf-benchmark](iperf-benchmark/) | `v0.1.0` | Minimal iperf3 server for TCP/UDP throughput testing |
 
-The steps below are common to every example. Each example's own README only
-covers how to exercise it once it's running, plus its exact workload reference
-and any per-example deploy flags.
+The quick start below was validated on 2026-06-19 with
+`automata-linux:v0.2.2-debug` on GCP TDX `c3-standard-4`.
+
+For a fuller deployment walkthrough, see
+[docs/hoodi-deployment.md](docs/hoodi-deployment.md).
+
+## Published Hoodi State
+
+Current published base image:
+
+- Image: `automata-linux:v0.2.2-debug`
+- Hoodi base image ID:
+  `0xf2291716b993b24a8a44b616a65c7088e0da54930c57f0fd08fa2920b944f609`
+- GitHub release:
+  `https://github.com/automata-network/automata-linux/releases/tag/v0.2.2-debug`
+
+Published platform profiles:
+
+| Platform | Variants |
+|----------|----------|
+| `gcp-tdx` | `c3-standard-4`, `c3-standard-8`, `c3-standard-22`, `c3-standard-44` |
+| `gcp-sev-snp` | `n2d-standard-2`, `n2d-standard-4`, `n2d-standard-8`, `n2d-standard-16` |
+| `azure-tdx` | `Standard_DC2es_v6`, `Standard_DC4es_v6`, `Standard_DC8es_v6`, `Standard_DC16es_v6` |
+| `azure-sev-snp` | `Standard_DC2as_v5`, `Standard_DC4as_v5`, `Standard_DC8as_v5`, `Standard_DC16as_v5` |
 
 ## Prerequisites
 
-- The `atakit` CLI installed (see [atakit-ng](https://github.com/automata-network/atakit/tree/atakit-ng)).
-- A cloud target (GCP or Azure) configured under `[cloud.targets.*]` in `~/.config/atakit/config.toml`.
-- A base image available locally, e.g.:
+- Rust and Cargo.
+- `git`, `curl`, and either Docker or Podman.
+- Google Cloud CLI authenticated for a project that can create confidential VM
+  instances in the selected zone.
+- A Hoodi-funded gas key and an owner key for CVM registration.
 
-  ```bash
-  atakit image pull <image_name>:<image_version> gcp
-  ```
+Install the atakit CLI:
 
-## 1. Point atakit at this repo
+```sh
+git clone https://github.com/automata-network/atakit.git
+cd atakit
+cargo install --path crates/atakit-cli
+```
 
-These workloads live in this repo's GitHub Releases. Declare it as a GitHub
-workload repository in `~/.config/atakit/config.toml`:
+Store keys as hex strings:
+
+```sh
+mkdir -p ~/.config/atakit
+printf "0x<owner-private-key-hex>\n" > ~/.config/atakit/owner_key
+printf "0x<gas-private-key-hex>\n" > ~/.config/atakit/gas_key
+chmod 600 ~/.config/atakit/owner_key ~/.config/atakit/gas_key
+```
+
+Authenticate to GCP and select the project:
+
+```sh
+gcloud auth login
+gcloud auth application-default login
+gcloud config set project <gcp-project-id>
+```
+
+## Configure atakit
+
+Add the Hoodi chain, base image repository, this workload repository, keys, and
+GCP target to `~/.config/atakit/config.toml`:
 
 ```toml
+[image.repositories]
+automata = { repo = "automata-network/automata-linux" }
+
 [workload.repositories]
 examples = { type = "github", repo = "melynx/cvm-workload-examples" }
+
+[chains.hoodi]
+rpc_url = "https://ethereum-hoodi-rpc.publicnode.com"
+session_registry = "0xB247950fBBFCE245641e433AFd7d8884328CE5A1"
+workload_registry = "0xda6430E06385F7516963f8A3B4e87beBb89860F8"
+base_image_registry = "0xCbe56f9B73c822679Cf36DcF8D99434E0f1588Ca"
+expire_offset = 3600
+
+[keys.owner]
+type = "es256k"
+mode = "provisioned"
+file = "~/.config/atakit/owner_key"
+
+[keys.gas]
+type = "es256k"
+mode = "provisioned"
+file = "~/.config/atakit/gas_key"
+
+[publish]
+chain = "hoodi"
+owner_key = "owner"
+relay_key = "gas"
+
+[cloud.defaults]
+chain = "hoodi"
+registration = "required"
+owner_key = "owner"
+gas_wallet = "gas"
+image = "automata-linux:v0.2.2-debug"
+
+[cloud.providers.gcp-tdx]
+platform = "gcp"
+project = "<gcp-project-id>"
+region = "asia-southeast1-b"
+
+[cloud.targets.gcp-c3-standard-4]
+provider = "gcp-tdx"
+vmtype = "c3-standard-4"
+
+[cloud.targets.gcp-c3-standard-4.metadata]
+serial-port-enable = "true"
 ```
 
-## 2. Browse available workloads
+## Pull artifacts
 
-Each release is one workload version.
+Pull the published base image:
 
-```bash
-atakit workload ls --remote
+```sh
+atakit image pull automata-linux:v0.2.2-debug gcp
 ```
 
-## 3. Pull a workload
+Pull and verify the published workload archives:
 
-```bash
-atakit workload pull <name>:<version>
+```sh
+atakit workload pull fedora-oci:v0.0.13 --verify
+atakit workload pull multi-container-example:v0.5.1 --verify
+atakit workload pull baby-container-dynamic-update:v0.1.3 --verify
+atakit workload pull peer-attestation-demo:v0.0.3 --verify
 ```
 
-This downloads the `.atawl` archive into your local store and automatically
-verifies its integrity — including the on-chain PCR23 measurement when
-`[publish]` is configured. The exact `<name>:<version>` for each example is in
-its README (linked above), or from `workload ls --remote`.
+Build the local iperf example from source:
 
-## 4. Exercise it
+```sh
+atakit workload build -d cvm-workload-examples/iperf-benchmark
+```
 
-Each example README walks through its specific test cases, please check them out.
+## Deploy examples
 
-## Build & publish your own workload
+Deploy the three standalone examples:
 
-The examples above were produced with the same flow. A workload is a directory
-with an `atakit-workload.toml` plus whatever it builds from (a `Containerfile`,
-source, measured-data files).
+```sh
+atakit cloud deploy fedora-oci:v0.0.13 \
+  --target gcp-c3-standard-4 \
+  --name fedora-oci-demo \
+  --yes
 
-### 1. Scaffold
+atakit cloud deploy multi-container-example:v0.5.1 \
+  --target gcp-c3-standard-4 \
+  --name multi-container-demo \
+  --yes
 
-```bash
+atakit cloud deploy baby-container-dynamic-update:v0.1.3 \
+  --target gcp-c3-standard-4 \
+  --name baby-container-demo \
+  --yes
+
+atakit cloud deploy iperf-benchmark:v0.1.0 \
+  --target gcp-c3-standard-4 \
+  --name iperf-benchmark-demo \
+  --yes
+```
+
+Deploy the peer attestation demo as two CVMs. The beta node auto-connects to the
+alpha node through the address in `peer-config.json`.
+
+```sh
+mkdir -p peer-alpha peer-beta
+cat > peer-alpha/peer-config.json <<EOF
+{"node_name":"alpha"}
+EOF
+
+atakit cloud deploy peer-attestation-demo:v0.0.3 \
+  --target gcp-c3-standard-4 \
+  --name peer-demo-alpha \
+  --unmeasured-data-dir peer-alpha \
+  --yes
+
+atakit cloud status peer-demo-alpha --live
+```
+
+Use the alpha public IP from `cloud status`:
+
+```sh
+cat > peer-beta/peer-config.json <<EOF
+{"node_name":"beta","peer_addr":"<alpha-ip>:4000"}
+EOF
+
+atakit cloud deploy peer-attestation-demo:v0.0.3 \
+  --target gcp-c3-standard-4 \
+  --name peer-demo-beta \
+  --unmeasured-data-dir peer-beta \
+  --yes
+```
+
+## Exercise examples
+
+Collect public IPs:
+
+```sh
+atakit cloud status fedora-oci-demo --live
+atakit cloud status multi-container-demo --live
+atakit cloud status baby-container-demo --live
+atakit cloud status iperf-benchmark-demo --live
+atakit cloud status peer-demo-alpha --live
+atakit cloud status peer-demo-beta --live
+```
+
+Fedora OCI:
+
+```sh
+ssh -p 2200 user@<fedora-ip>
+# password: user
+```
+
+Multi-container dashboard and shared-disk flow:
+
+```sh
+curl http://<multi-container-ip>:3000/
+curl -X POST http://<multi-container-ip>:3000/task -d "hello world"
+curl http://<multi-container-ip>:3000/status
+curl http://<multi-container-ip>:3000/results
+curl -X POST http://<multi-container-ip>:3000/clear
+```
+
+Iperf benchmark:
+
+```sh
+iperf3 -c <iperf-ip> -p 5201
+iperf3 -c <iperf-ip> -p 5201 -R
+iperf3 -c <iperf-ip> -p 5201 -u -b 100M
+```
+
+Baby-container dynamic update:
+
+```sh
+cd baby-container-dynamic-update
+./scripts/build-baby-images.sh
+
+BASE_URL=http://<baby-container-ip>:3000
+
+curl -fsS -X POST \
+  --data-binary @dist/baby-forex-v1.tar \
+  "${BASE_URL}/api/upload"
+
+curl -fsS -X POST \
+  -H "content-type: application/json" \
+  -d "{}" \
+  "${BASE_URL}/api/create"
+
+curl -fsS "${BASE_URL}/api/state"
+```
+
+To test a runtime update, upload v2, remove the running v1 instance, create a
+new instance, and check the state for `"version": "v2"` logs:
+
+```sh
+curl -fsS -X POST \
+  --data-binary @dist/baby-forex-v2.tar \
+  "${BASE_URL}/api/upload"
+
+curl -fsS -X POST \
+  -H "content-type: application/json" \
+  -d "{\"instance_id\":\"forex-worker-1\"}" \
+  "${BASE_URL}/api/remove"
+
+curl -fsS -X POST \
+  -H "content-type: application/json" \
+  -d "{}" \
+  "${BASE_URL}/api/create"
+
+curl -fsS "${BASE_URL}/api/state"
+```
+
+Peer attestation demo:
+
+```text
+http://<peer-alpha-ip>:3000/
+http://<peer-beta-ip>:3000/
+```
+
+If beta was deployed with `peer_addr`, it auto-connects to alpha. Otherwise,
+enter `<peer-alpha-ip>:4000` or `<peer-beta-ip>:4000` in the other node's
+dashboard and connect manually.
+
+## Cleanup
+
+Destroy deployments when done:
+
+```sh
+atakit cloud destroy fedora-oci-demo --yes
+atakit cloud destroy multi-container-demo --yes
+atakit cloud destroy baby-container-demo --yes
+atakit cloud destroy peer-demo-alpha peer-demo-beta --yes
+```
+
+Confirm the local deployment inventory is empty:
+
+```sh
+atakit cloud ls
+```
+
+The deploy flow imports the base image into the selected GCP project as
+`automata-linux-v0-2-2-debug`. The cleanup commands above remove the example
+deployments, firewalls, and the multi-container persistent disk; they do not
+delete that reusable project image.
+
+## Build and publish your own workload
+
+A workload directory contains an `atakit-workload.toml` plus the files needed to
+build or package the workload. Create a new workload:
+
+```sh
 atakit workload create my-service
 ```
 
-This creates `my-service/` with a fully-commented `atakit-workload.toml`. Add
-your `Containerfile` and application code alongside it.
-
-### 2. Define the workload
-
-Edit `my-service/atakit-workload.toml`. A minimal build-from-source workload:
+Edit `my-service/atakit-workload.toml`:
 
 ```toml
 format = 2
@@ -83,72 +335,28 @@ format = 2
 [workload]
 name = "my-service"
 version = "v0.0.1"
-base-image-mode = "blacklist"        # deploy on any base image
+base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000"]
 ```
 
-Bump `version` on every change you publish — the on-chain workload ID is
-derived from `name` + `version`, so a new version is a new identity.
+Build and test:
 
-### 3. Build
-
-```bash
+```sh
 atakit workload build -d ./my-service
+atakit cloud deploy my-service:v0.0.1 --target gcp-c3-standard-4 --yes
 ```
 
-This produces the `.atawl` archive in your local store and prints its **PCR23**
-measurement — the value attestation pins. Inspect a built workload anytime:
+For pre-publish testing, use a target or config with registration set to
+optional or off. With `registration = "required"`, the CVM expects the workload
+to already be registered on-chain.
 
-```bash
-atakit workload info my-service:v0.0.1
-```
+Publish the workload registration and upload the archive:
 
-### 4. Deploy to test
-
-Same as deploying an example (see [Prerequisites](#prerequisites) for the base
-image and cloud target):
-
-```bash
-atakit cloud deploy my-service:v0.0.1 --target gcp-tdx
-atakit cloud status my-service-gcp-tdx
-atakit cloud destroy my-service-gcp-tdx
-```
-
-
-> [!NOTE]
-> You will want to configure `registration=optional/off` in your atakit config for testing, otherwise the CVM will fail to start the workload, as it checks whether the workload is registered on-chain.
-
-### 5. Publish
-
-Publishing is two independent actions. Together they let anyone `workload pull`
-your archive and have its integrity verified against the chain — exactly how the
-examples in this repo work.
-
-**a. Register the spec on-chain** so attestation can verify deployments. This
-signs a transaction, so it needs the `owner`/`gas` keys and a `[publish]` chain
-configured.
-
-```bash
+```sh
 atakit workload publish my-service:v0.0.1
-```
-
-**b. Upload the archive** to a workload repository so others can pull it.
-Declare a repo you can write to in `~/.config/atakit/config.toml` — a GitHub
-Releases repo (what this repo uses) or an HTTP registry:
-
-```toml
-[workload.repositories]
-mine = { type = "github", repo = "you/your-workloads", credential = "private" }
-```
-
-Then push. For a GitHub repo this creates a release tagged `my-service/v0.0.1`
-with the `.atawl` attached and the workload ID in the body:
-
-```bash
 atakit workload push my-service:v0.0.1
 ```
 
-Consumers point atakit at `you/your-workloads` (step 1 above) and pull with
-`atakit workload pull my-service:v0.0.1`, which re-verifies the PCR23
-measurement against the on-chain spec from step 5a.
+Consumers can then point atakit at your workload repository and pull the same
+`name:version`.
