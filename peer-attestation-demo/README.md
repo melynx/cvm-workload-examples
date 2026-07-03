@@ -5,6 +5,8 @@ the CVM agent's session key, perform an authenticated key exchange, and
 communicate over an AES-256-GCM encrypted channel. A web dashboard visualizes
 the entire protocol flow in real time.
 
+Published version: `peer-attestation-demo:v0.0.3`.
+
 ## Architecture
 
 ```
@@ -46,13 +48,26 @@ deploy time.
 
 ## What this demonstrates
 
-- CVM agent integration (`cvm_agent = true`, Unix socket at `/app/cvm-agent.sock`)
+- atakit portal integration (`atakit-portal = true`, Unix socket at
+  `/run/atakit-portal.sock`)
 - Session key signing (`POST /sign-message`, secp256k1/keccak256)
 - Cross-CVM identity verification (workload ID + base image match)
 - Signed Diffie-Hellman key exchange (ephemeral keys + session key authentication)
 - Forward secrecy (ephemeral keys discarded after ECDH)
 - AES-256-GCM authenticated encryption
 - Unmeasured data for per-instance configuration
+- Workload-side on-chain verification through plain JSON-RPC `eth_call`
+
+## Workload Config
+
+Important manifest settings in `atakit-workload.toml`:
+
+- Dashboard port: `3000/tcp`
+- Peer TCP port: `4000/tcp`
+- Portal socket enabled with `atakit-portal = true`
+- Unmeasured data: `peer-config.json`
+- Workload logs enabled
+- Hoodi RPC and registry addresses are provided through environment variables
 
 ## Test locally
 
@@ -86,25 +101,45 @@ Note: each mock agent generates its own secp256k1 session key but reports the
 same workload ID, so cross-verification passes. The mock agents report
 `isEmulation: true` in `/platform`.
 
-## Deploy to CVMs
+## Pull And Deploy To CVMs
+
+See the [repo README](../README.md) or
+[Hoodi deployment guide](../docs/hoodi-deployment.md) for one-time setup.
 
 ```bash
 cd cvm-workload-examples/peer-attestation-demo
 
-# Build the archive (same for both instances)
-atakit workload build -d .
+atakit workload pull peer-attestation-demo:v0.0.3 --verify
 
 # Deploy alpha
-echo '{"node_name": "alpha"}' > peer-config.json
-atakit cloud deploy -d . --target <target> --name peer-demo-alpha
+mkdir -p alpha beta
+echo '{"node_name": "alpha"}' > alpha/peer-config.json
+atakit cloud deploy peer-attestation-demo:v0.0.3 \
+  --target gcp-c3-standard-4 \
+  --name peer-demo-alpha \
+  --unmeasured-data-dir alpha \
+  --yes
 
 # Get alpha's external IP
-atakit cloud status peer-demo-alpha --target <target>
+atakit cloud status peer-demo-alpha --live
 
 # Deploy beta (with auto-connect to alpha)
-echo '{"node_name": "beta", "peer_addr": "<alpha-ip>:4000"}' > peer-config.json
-atakit cloud deploy -d . --target <target> --name peer-demo-beta
+echo '{"node_name": "beta", "peer_addr": "<alpha-ip>:4000"}' > beta/peer-config.json
+atakit cloud deploy peer-attestation-demo:v0.0.3 \
+  --target gcp-c3-standard-4 \
+  --name peer-demo-beta \
+  --unmeasured-data-dir beta \
+  --yes
 ```
+
+If you are changing the example, build locally with:
+
+```bash
+atakit workload build -d .
+```
+
+For pre-publish testing, deploy with registration optional/off or publish a new
+version before using a target with `registration = "required"`.
 
 ## Dashboard
 
@@ -194,3 +229,9 @@ The CVM needs outbound access to the RPC endpoint.
 - **Replay protection** -- AES-GCM nonces are random per message. The HKDF
   salt binds the derived key to both session IDs, preventing key reuse across
   different session pairs.
+
+## Cleanup
+
+```bash
+atakit cloud destroy peer-demo-alpha peer-demo-beta --yes
+```

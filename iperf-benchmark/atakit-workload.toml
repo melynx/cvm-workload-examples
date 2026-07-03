@@ -1,0 +1,11 @@
+# Minimal iperf3 server workload for CVM network benchmarking.
+
+format = 2
+
+[workload]
+name = "iperf-benchmark"
+version = "v0.1.0"
+base-image-mode = "blacklist"
+image = { build = ".", containerfile = "Containerfile" }
+ports = ["5201:5201"]
+restart = "unless-stopped"

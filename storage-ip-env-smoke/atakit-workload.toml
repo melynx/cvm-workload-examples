@@ -1,0 +1,84 @@
+format = 3
+
+[package]
+measured-data = ["./measured-data/config.txt"]
+unmeasured-data = ["./runtime"]
+
+[workload]
+name = "storage-ip-env-smoke"
+version = "v0.1.0"
+base-image-mode = "blacklist"
+image = { build = ".", containerfile = "Containerfile" }
+ports = ["3100:3100/tcp"]
+restart = "unless-stopped"
+atakit-portal = true
+ip-env = true
+measured-data = true
+unmeasured-data = true
+env-file = "./measured.env"
+unmeasured-env-file = "./runtime/secrets/runtime.env"
+
+[workload.environment]
+SMOKE_PORT = "3100"
+HELPER_URL = "http://helper:3101/status"
+
+[workload.storage.rw]
+disk = "feature-data"
+base-path = "/workload-rw"
+mount-path = "/mnt/rw"
+read-only = false
+
+[workload.storage.ro]
+disk = "feature-data"
+base-path = "/workload-ro"
+mount-path = "/mnt/ro"
+read-only = true
+
+[dependencies.helper]
+image = { build = ".", containerfile = "Containerfile.helper" }
+restart = "unless-stopped"
+ip-env = true
+env-file = "./measured.env"
+unmeasured-env-file = "./runtime/secrets/runtime.env"
+
+[dependencies.helper.environment]
+HELPER_PORT = "3101"
+
+[dependencies.helper.storage.helper]
+disk = "feature-data"
+base-path = "/helper"
+mount-path = "/mnt/helper"
+read-only = false
+
+[baby-container]
+enabled = true
+max-instances = 1
+
+[baby-container.slots.smoke-worker]
+parent-service = "storage-ip-env-smoke"
+image-selection = "single"
+max-instances = 1
+ip-env = true
+
+[baby-container.slots.smoke-worker.lifecycle]
+image-retention = "session"
+instance-retention = "ephemeral"
+restart = "manual"
+rootfs = "read-only"
+
+[baby-container.slots.smoke-worker.storage.workspace]
+disk = "feature-data"
+base-path = "/baby"
+mount-path = "/workspace"
+retention = "session"
+scope = "instance"
+read-only = false
+
+[baby-container.slots.smoke-worker.storage.workspace.permissions]
+baby = "rw"
+parent = "none"
+
+[disks.feature-data]
+index = 10
+size = "10GB"
+encryption = { unlock_method = [], bind = [] }

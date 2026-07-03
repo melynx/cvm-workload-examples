@@ -4,6 +4,12 @@ A Fedora-based OCI container with SSH and a broad set of debugging / networking
 tools, packaged as an atakit workload. Useful as a shell-in environment for
 poking around inside a CVM.
 
+Published version: `fedora-oci:v0.0.13`.
+
+Use this workload when you need a debug container inside a deployed CVM. The
+base image itself is minimal and does not provide SSH; this workload exposes SSH
+from the Fedora container on host port `2200`.
+
 ## What's inside
 
 Built from `fedora:latest` plus:
@@ -17,7 +23,7 @@ Built from `fedora:latest` plus:
   `rsync`, `tar`/`gzip`/`xz`, `openssl`, `nodejs`/`npm`, `bash-completion`,
   `man-db`
 
-### Login
+## Login
 
 A single non-root user is provisioned in the image:
 
@@ -30,7 +36,7 @@ A single non-root user is provisioned in the image:
 Host SSH keys were baked into the archive at build time via `ssh-keygen -A`, so
 every instance launched from this published archive shares the same host keys.
 
-### Ports
+## Ports
 
 | Host | Container | Purpose |
 |------|-----------|---------|
@@ -43,7 +49,7 @@ Extra firewall rules opened beyond the port-mapped set (see
 - `4000/tcp`
 - `5000/udp`
 
-### Other config
+## Workload Config
 
 - `restart = "unless-stopped"` — sshd respawns if it exits.
 - `RUST_LOG=info` — set in the container environment.
@@ -51,21 +57,23 @@ Extra firewall rules opened beyond the port-mapped set (see
   via the portal's `/baby-container/*` API.
 - No measured-data, no unmeasured-data, no persistent disks, no portal socket.
 
-## Pull & deploy
+## Pull And Deploy
 
-See the [repo README](../README.md) for one-time setup (configuring this repo
-as a workload repository, a cloud target, and a base image).
+See the [repo README](../README.md) or
+[Hoodi deployment guide](../docs/hoodi-deployment.md) for one-time setup.
 
 ```bash
 # Download the pre-built, on-chain-published archive into your local store.
-atakit workload pull fedora-oci:v0.0.13
+atakit workload pull fedora-oci:v0.0.13 --verify
 
-# Deploy to a configured cloud target.
+# Deploy to a configured Hoodi cloud target.
 atakit cloud deploy fedora-oci:v0.0.13 \
-    --image <base-image>:<version> --target <target> --name fedora-oci
+  --target gcp-c3-standard-4 \
+  --name fedora-oci-demo \
+  --yes
 
 # Get the external IP.
-atakit cloud status fedora-oci --target <target>
+atakit cloud status fedora-oci-demo --live
 ```
 
 ## SSH in
@@ -103,3 +111,11 @@ jq --version
 - SSH uses **password auth** by default. For anything other than throwaway
   poking, provide an `authorized_keys` file at deploy time via
   `unmeasured-data` and use key-based login.
+- If SSH does not complete, use `atakit cloud serial fedora-oci-demo` and
+  workload logs/status first. The base image has no separate SSH path.
+
+## Cleanup
+
+```bash
+atakit cloud destroy fedora-oci-demo --yes
+```

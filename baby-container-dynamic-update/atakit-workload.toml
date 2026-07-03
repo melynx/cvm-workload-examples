@@ -8,7 +8,7 @@ format = 2
 
 [workload]
 name = "baby-container-dynamic-update"
-version = "v0.1.2"
+version = "v0.1.3-splicefix-e2e"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000/tcp"]
@@ -16,11 +16,15 @@ restart = "unless-stopped"
 atakit-portal = true
 gid-group = "dashboard"
 
+[workload.disks]
+upload-spool = "/var/lib/baby-dashboard/uploads"
+
 [workload.environment]
 DASHBOARD_PORT = "3000"
 BABY_SLOT = "forex-worker"
 BABY_SLOTS = "forex-worker,forex-worker-alt"
 PORTAL_SOCKET = "/run/atakit-portal.sock"
+UPLOAD_SPOOL_DIR = "/var/lib/baby-dashboard/uploads"
 
 [baby-container]
 enabled = true
@@ -63,3 +67,7 @@ driver = "k8s-file"
 [baby-container.slots.forex-worker-alt.logging.options]
 max-size = "5m"
 max-file = "2"
+
+[disks.upload-spool]
+size = "10GB"
+encryption = { unlock_method = [], bind = [] }

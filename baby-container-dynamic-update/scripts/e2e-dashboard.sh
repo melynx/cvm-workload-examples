@@ -16,7 +16,10 @@ upload_and_create() {
   version="$1"
   tar="${ROOT}/dist/baby-forex-${version}.tar"
   echo "Uploading ${tar}"
-  curl -fsS -X POST --data-binary "@${tar}" "${BASE_URL}/api/upload"
+  gzip -c "${tar}" | curl -fsS -X POST \
+    -H 'content-encoding: gzip' \
+    --data-binary @- \
+    "${BASE_URL}/api/upload"
   echo
   echo "Creating baby container"
   curl -fsS -X POST -H 'content-type: application/json' -d '{}' "${BASE_URL}/api/create"
@@ -32,5 +35,5 @@ upload_and_create v1
 echo
 echo "Remove the v1 instance from the dashboard or with /api/remove before creating v2 if the slot cap is reached."
 echo "Then run:"
-echo "  curl -fsS -X POST --data-binary @${ROOT}/dist/baby-forex-v2.tar ${BASE_URL}/api/upload"
+echo "  gzip -c ${ROOT}/dist/baby-forex-v2.tar | curl -fsS -X POST -H 'content-encoding: gzip' --data-binary @- ${BASE_URL}/api/upload"
 echo "  curl -fsS -X POST -H 'content-type: application/json' -d '{}' ${BASE_URL}/api/create"

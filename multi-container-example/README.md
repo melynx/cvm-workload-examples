@@ -1,6 +1,9 @@
 # multi-container-example
 
-Demonstrates a multi-container workload with three containers sharing a persistent disk and communicating over the container network.
+Demonstrates a multi-container workload with three containers sharing a
+persistent disk and communicating over the workload container network.
+
+Published version: `multi-container-example:v0.5.1`.
 
 ## Architecture
 
@@ -30,22 +33,37 @@ Demonstrates a multi-container workload with three containers sharing a persiste
 - **depends_on** ordering (worker-b starts after worker-a)
 - **Per-container environment** variables (`WORKER_NAME`, `WORKER_PORT`)
 - **Single build context** with multiple Containerfiles
+- Workload-level firewall and port exposure for a multi-service app
 
-## Pull & deploy
+## Workload Config
 
-See the [repo README](../README.md) for one-time setup (configuring this repo
-as a workload repository, a cloud target, and a base image).
+Important manifest settings in `atakit-workload.toml`:
+
+- Parent service: `multi-container-example`
+- Dependencies: `worker-a`, `worker-b`
+- Ports: `3000:3000`, `3001:3001`, `3002:3002`
+- Extra firewall rule: `4000/tcp`
+- Disk: `shared-data`, mounted at `/shared` in all containers
+- Disk size: `10GB`
+- Restart policy: `unless-stopped`
+
+## Pull And Deploy
+
+See the [repo README](../README.md) or
+[Hoodi deployment guide](../docs/hoodi-deployment.md) for one-time setup.
 
 ```bash
 # Download the pre-built, on-chain-published archive into your local store.
-atakit workload pull multi-container-example:v0.5.1
+atakit workload pull multi-container-example:v0.5.1 --verify
 
-# Deploy to a configured cloud target (one-shot per CVM /init).
+# Deploy to a configured Hoodi cloud target.
 atakit cloud deploy multi-container-example:v0.5.1 \
-    --image <base-image>:<version> --target <target>
+  --target gcp-c3-standard-4 \
+  --name multi-container-demo \
+  --yes
 
 # Get the external IP.
-atakit cloud status multi-container-example-<target> --target <target>
+atakit cloud status multi-container-demo --live
 ```
 
 The workload exposes the coordinator dashboard on port `3000` and the workers
@@ -75,3 +93,23 @@ curl -X POST http://${IP}:3000/clear
 
 If a handler raises, the response is a JSON 500 with the Python traceback —
 useful for diagnosing disk-mount, networking, or permission issues.
+
+## Build Locally
+
+Build from this directory if you are changing the example:
+
+```bash
+atakit workload build -d .
+```
+
+For pre-publish testing, deploy with registration optional/off or publish a new
+version before using a target with `registration = "required"`.
+
+## Cleanup
+
+```bash
+atakit cloud destroy multi-container-demo --yes
+```
+
+Destroying the deployment removes the shared persistent disk created for this
+workload.

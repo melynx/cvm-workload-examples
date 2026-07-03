@@ -1,0 +1,10 @@
+FROM python:3.12-alpine
+
+WORKDIR /app
+COPY app.py .
+
+ENV SMOKE_PORT=3100
+ENV HELPER_URL=http://helper:3101/status
+
+EXPOSE 3100
+CMD ["python", "app.py"]

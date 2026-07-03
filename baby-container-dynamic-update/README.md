@@ -5,6 +5,8 @@ is a dashboard service that declares two baby-container slots, accepts helper
 image uploads from a user, and calls the portal's workload-facing UDS from
 inside the parent service.
 
+Published version: `baby-container-dynamic-update:v0.1.3`.
+
 ## Architecture
 
 ```text
@@ -48,8 +50,45 @@ authenticate users before accepting helper images.
 - The example uses `image-retention = "session"` and
   `instance-retention = "ephemeral"`: after a CVM restart, the dashboard comes
   back without staged baby images or instances.
+- Uploads are spooled to a workload data disk at
+  `/var/lib/baby-dashboard/uploads` before they are forwarded to the portal.
+  This avoids `/tmp` tmpfs and keeps large helper image uploads out of the
+  dashboard container's memory path.
 
-## Build The Workload
+## Workload Config
+
+Important manifest settings in `atakit-workload.toml`:
+
+- Parent service: `baby-container-dynamic-update`
+- Dashboard port: `3000/tcp`
+- Portal socket: `/run/atakit-portal.sock`
+- Upload spool disk: `upload-spool`, mounted at
+  `/var/lib/baby-dashboard/uploads`
+- Upload spool size: `10GB`
+- Baby slots: `forex-worker`, `forex-worker-alt`
+- Max baby-container instances: `3`
+- Slot image retention: `session`
+- Slot instance retention: `ephemeral`
+
+## Pull And Deploy
+
+See the [repo README](../README.md) or
+[Hoodi deployment guide](../docs/hoodi-deployment.md) for one-time setup.
+
+```bash
+atakit workload pull baby-container-dynamic-update:v0.1.3 --verify
+
+atakit cloud deploy baby-container-dynamic-update:v0.1.3 \
+  --target gcp-c3-standard-4 \
+  --name baby-container-demo \
+  --yes
+
+atakit cloud status baby-container-demo --live
+```
+
+The dashboard listens on port `3000`.
+
+## Build The Workload Locally
 
 From this directory:
 
@@ -60,12 +99,14 @@ atakit workload build -d .
 Then deploy as usual:
 
 ```bash
-atakit cloud deploy baby-container-dynamic-update:v0.1.2 \
-  --image <base-image>:<version> \
-  --target <target>
+atakit cloud deploy baby-container-dynamic-update:v0.1.3 \
+  --target gcp-c3-standard-4 \
+  --name baby-container-demo \
+  --yes
 ```
 
-The dashboard listens on port `3000`.
+For pre-publish testing, deploy with registration optional/off or publish a new
+version before using a target with `registration = "required"`.
 
 ## Build Runtime Baby Images
 
@@ -110,7 +151,8 @@ The same flow can be driven with curl:
 ```bash
 BASE_URL=http://<cvm-ip>:3000
 
-curl -fsS -X POST --data-binary @dist/baby-forex-v1.tar \
+curl -fsS -X POST \
+  --data-binary @dist/baby-forex-v1.tar \
   "${BASE_URL}/api/upload"
 
 curl -fsS -X POST -H 'content-type: application/json' -d '{}' \
@@ -126,3 +168,51 @@ The parent service forwards those requests to:
 ```
 
 The external client never talks to portal directly.
+
+Gzip upload is also accepted for clients that need it:
+
+```bash
+gzip -c dist/baby-forex-v1.tar | curl -fsS -X POST \
+  -H 'content-encoding: gzip' \
+  --data-binary @- \
+  "${BASE_URL}/api/upload"
+```
+
+To test a runtime update from the command line:
+
+```bash
+curl -fsS -X POST \
+  --data-binary @dist/baby-forex-v2.tar \
+  "${BASE_URL}/api/upload"
+
+curl -fsS -X POST -H 'content-type: application/json' \
+  -d '{"instance_id":"forex-worker-1"}' \
+  "${BASE_URL}/api/remove"
+
+curl -fsS -X POST -H 'content-type: application/json' -d '{}' \
+  "${BASE_URL}/api/create"
+
+curl -fsS "${BASE_URL}/api/state"
+```
+
+## API Summary
+
+The dashboard exposes:
+
+- `GET /` - browser dashboard
+- `GET /api/state` - current staged image, baby-container instances, and logs
+- `POST /api/upload` - upload a raw Docker archive tar, or gzip with
+  `content-encoding: gzip`
+- `POST /api/create` - create a baby-container instance from the staged image
+- `POST /api/stop` - stop an instance
+- `POST /api/remove` - remove an instance
+- `POST /api/image/remove` - remove the staged image from a slot
+
+## Cleanup
+
+```bash
+atakit cloud destroy baby-container-demo --yes
+```
+
+The upload spool is scratch space for dashboard uploads and is removed with the
+deployment.

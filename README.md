@@ -13,8 +13,9 @@ with `atakit workload build`.
 | [peer-attestation-demo](peer-attestation-demo/) | `v0.0.3` | Two CVMs verify each other and communicate over an encrypted channel |
 | [iperf-benchmark](iperf-benchmark/) | `v0.1.0` | Minimal iperf3 server for TCP/UDP throughput testing |
 
-The quick start below was validated on 2026-06-19 with
-`automata-linux:v0.2.2-debug` on GCP TDX `c3-standard-4`.
+The current published base image is `automata-linux:v0.2.4-debug`. The quick
+start below follows the GCP TDX `c3-standard-4` path previously validated on
+Hoodi.
 
 For a fuller deployment walkthrough, see
 [docs/hoodi-deployment.md](docs/hoodi-deployment.md).
@@ -23,11 +24,11 @@ For a fuller deployment walkthrough, see
 
 Current published base image:
 
-- Image: `automata-linux:v0.2.2-debug`
+- Image: `automata-linux:v0.2.4-debug`
 - Hoodi base image ID:
-  `0xf2291716b993b24a8a44b616a65c7088e0da54930c57f0fd08fa2920b944f609`
+  `0xc1beb88ace5e6ed3d617779e5c77fe89777387b578c92f9a60ae18edc217beb2`
 - GitHub release:
-  `https://github.com/automata-network/automata-linux/releases/tag/v0.2.2-debug`
+  `https://github.com/automata-network/automata-linux/releases/tag/v0.2.4-debug`
 
 Published platform profiles:
 
@@ -110,7 +111,7 @@ chain = "hoodi"
 registration = "required"
 owner_key = "owner"
 gas_wallet = "gas"
-image = "automata-linux:v0.2.2-debug"
+image = "automata-linux:v0.2.4-debug"
 
 [cloud.providers.gcp-tdx]
 platform = "gcp"
@@ -130,7 +131,7 @@ serial-port-enable = "true"
 Pull the published base image:
 
 ```sh
-atakit image pull automata-linux:v0.2.2-debug gcp
+atakit image pull automata-linux:v0.2.4-debug gcp
 ```
 
 Pull and verify the published workload archives:

@@ -1,15 +1,17 @@
 # Hoodi Deployment Guide
 
 This guide deploys the published workload examples with the published
-`automata-linux:v0.2.2-debug` base image on Hoodi.
+`automata-linux:v0.2.4-debug` base image on Hoodi.
 
-Validated on 2026-06-19 with:
+The current published base image is:
 
-- Base image: `automata-linux:v0.2.2-debug`
+- Base image: `automata-linux:v0.2.4-debug`
 - Hoodi base image ID:
-  `0xf2291716b993b24a8a44b616a65c7088e0da54930c57f0fd08fa2920b944f609`
-- GCP TDX target: `c3-standard-4`
+  `0xc1beb88ace5e6ed3d617779e5c77fe89777387b578c92f9a60ae18edc217beb2`
 - Published workload repository: `melynx/cvm-workload-examples`
+
+The deployment flow below follows the GCP TDX `c3-standard-4` path previously
+validated on Hoodi.
 
 ## Configure atakit
 
@@ -50,7 +52,7 @@ chain = "hoodi"
 registration = "required"
 owner_key = "owner"
 gas_wallet = "gas"
-image = "automata-linux:v0.2.2-debug"
+image = "automata-linux:v0.2.4-debug"
 
 [cloud.providers.gcp-tdx]
 platform = "gcp"
@@ -68,7 +70,7 @@ serial-port-enable = "true"
 ## Pull published artifacts
 
 ```sh
-atakit image pull automata-linux:v0.2.2-debug gcp
+atakit image pull automata-linux:v0.2.4-debug gcp
 
 atakit workload pull fedora-oci:v0.0.13 --verify
 atakit workload pull multi-container-example:v0.5.1 --verify

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import http.client
+import gzip
 import json
 import os
 import socket
+import tempfile
 import traceback
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -16,7 +18,18 @@ BABY_SLOTS = [
     for slot in os.environ.get("BABY_SLOTS", BABY_SLOT).split(",")
     if slot.strip()
 ]
-MAX_UPLOAD_BYTES = 256 * 1024 * 1024
+UPLOAD_SPOOL_DIR = os.environ.get(
+    "UPLOAD_SPOOL_DIR",
+    "/var/lib/baby-dashboard/uploads",
+)
+MAX_UPLOAD_BYTES = 1024 * 1024 * 1024
+MAX_COMPRESSED_UPLOAD_BYTES = MAX_UPLOAD_BYTES
+UPLOAD_CHUNK_BYTES = 1024 * 1024
+UPLOAD_TEMP_PREFIX = "baby-upload-"
+
+
+class UploadTooLarge(ValueError):
+    pass
 
 
 class UnixHTTPConnection(http.client.HTTPConnection):
@@ -45,6 +58,107 @@ def portal_request(method, path, body=None, headers=None):
         return resp.status, payload
     finally:
         conn.close()
+
+
+def prepare_upload_spool():
+    os.makedirs(UPLOAD_SPOOL_DIR, exist_ok=True)
+    for name in os.listdir(UPLOAD_SPOOL_DIR):
+        if not name.startswith(UPLOAD_TEMP_PREFIX):
+            continue
+        path = os.path.join(UPLOAD_SPOOL_DIR, name)
+        try:
+            if os.path.isfile(path) or os.path.islink(path):
+                os.unlink(path)
+        except FileNotFoundError:
+            pass
+
+
+def new_upload_temp(suffix):
+    temp = tempfile.NamedTemporaryFile(
+        dir=UPLOAD_SPOOL_DIR,
+        prefix=UPLOAD_TEMP_PREFIX,
+        suffix=suffix,
+        delete=False,
+    )
+    return temp
+
+
+def remove_upload_temp(path):
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        pass
+
+
+def parse_content_length(handler):
+    raw = handler.headers.get("content-length")
+    if raw is None:
+        raise ValueError("missing content-length")
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ValueError("invalid content-length") from exc
+
+
+def receive_upload_to_file(handler, length):
+    temp = new_upload_temp(".upload")
+    path = temp.name
+    received = 0
+    remaining = length
+    try:
+        with temp:
+            while remaining > 0:
+                chunk_size = min(UPLOAD_CHUNK_BYTES, remaining)
+                chunk = handler.rfile.read(chunk_size)
+                if chunk == b"":
+                    break
+                temp.write(chunk)
+                received += len(chunk)
+                remaining -= len(chunk)
+        if received != length:
+            raise ValueError(
+                f"incomplete upload: expected {length} bytes, got {received}"
+            )
+        return path, received
+    except Exception:
+        remove_upload_temp(path)
+        raise
+
+
+def decompress_gzip_to_file(src_path):
+    output = new_upload_temp(".tar")
+    output_path = output.name
+    decoded = 0
+    try:
+        with output, gzip.open(src_path, "rb") as source:
+            while True:
+                chunk = source.read(UPLOAD_CHUNK_BYTES)
+                if not chunk:
+                    break
+                decoded += len(chunk)
+                if decoded > MAX_UPLOAD_BYTES:
+                    raise UploadTooLarge("decompressed upload exceeds 1 GiB")
+                output.write(chunk)
+        return output_path, decoded
+    except (OSError, EOFError) as exc:
+        remove_upload_temp(output_path)
+        raise ValueError(f"invalid gzip upload: {exc}") from exc
+    except Exception:
+        remove_upload_temp(output_path)
+        raise
+
+
+def portal_upload_file(slot, path, length):
+    with open(path, "rb") as body:
+        return portal_request(
+            "POST",
+            f"/baby-container/image/upload?slot={urllib.parse.quote(slot)}",
+            body=body,
+            headers={
+                "content-type": "application/octet-stream",
+                "content-length": str(length),
+            },
+        )
 
 
 def json_response(handler, status, payload):
@@ -160,7 +274,7 @@ INDEX_HTML = """<!doctype html>
           <div class="key">Upload format</div><div class="value">Docker archive image tar</div>
         </div>
         <div style="margin-top:14px">
-          <input id="imageFile" type="file" accept=".tar,application/x-tar,application/octet-stream">
+          <input id="imageFile" type="file" accept=".tar,.tar.gz,.tgz,application/x-tar,application/gzip,application/octet-stream">
         </div>
         <div class="toolbar">
           <button id="uploadBtn">Upload image</button>
@@ -278,8 +392,9 @@ INDEX_HTML = """<!doctype html>
       }
       $('uploadBtn').disabled = true;
       try {
-        const body = await file.arrayBuffer();
-        const result = await api('/api/upload', { method: 'POST', body });
+        const headers = {};
+        if (file.name.endsWith('.gz')) headers['content-encoding'] = 'gzip';
+        const result = await api('/api/upload', { method: 'POST', headers, body: file });
         $('lastAction').textContent = `Uploaded ${result.image_id}`;
         await refresh();
       } finally {
@@ -373,21 +488,45 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         try:
             if parsed.path == "/api/upload":
-                length = int(self.headers.get("content-length", "0"))
+                try:
+                    length = parse_content_length(self)
+                except ValueError as exc:
+                    json_response(self, 400, {"error": str(exc)})
+                    return
                 if length <= 0:
                     json_response(self, 400, {"error": "empty upload"})
                     return
-                if length > MAX_UPLOAD_BYTES:
-                    json_response(self, 413, {"error": "upload exceeds 256 MiB"})
+                encoding = self.headers.get("content-encoding", "").strip().lower()
+                if encoding not in ("", "gzip"):
+                    json_response(
+                        self,
+                        400,
+                        {"error": f"unsupported content-encoding: {encoding}"},
+                    )
                     return
-                body = self.rfile.read(length)
-                slot = request_slot(parsed)
-                status, payload = portal_request(
-                    "POST",
-                    f"/baby-container/image/upload?slot={urllib.parse.quote(slot)}",
-                    body=body,
-                    headers={"content-type": "application/octet-stream"},
-                )
+                if length > MAX_COMPRESSED_UPLOAD_BYTES:
+                    json_response(self, 413, {"error": "upload exceeds 1 GiB"})
+                    return
+                temp_paths = []
+                try:
+                    upload_path, upload_length = receive_upload_to_file(self, length)
+                    temp_paths.append(upload_path)
+                    forward_path = upload_path
+                    forward_length = upload_length
+                    if encoding == "gzip":
+                        forward_path, forward_length = decompress_gzip_to_file(upload_path)
+                        temp_paths.append(forward_path)
+                    slot = request_slot(parsed)
+                    status, payload = portal_upload_file(slot, forward_path, forward_length)
+                except UploadTooLarge as exc:
+                    json_response(self, 413, {"error": str(exc)})
+                    return
+                except ValueError as exc:
+                    json_response(self, 400, {"error": str(exc)})
+                    return
+                finally:
+                    for path in temp_paths:
+                        remove_upload_temp(path)
                 json_response(self, status, payload)
                 return
             if parsed.path == "/api/create":
@@ -441,6 +580,11 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    prepare_upload_spool()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
-    print(f"dashboard listening on 0.0.0.0:{PORT}, slot={BABY_SLOT}", flush=True)
+    print(
+        f"dashboard listening on 0.0.0.0:{PORT}, slot={BABY_SLOT}, "
+        f"upload_spool={UPLOAD_SPOOL_DIR}",
+        flush=True,
+    )
     server.serve_forever()
