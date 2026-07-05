@@ -2,19 +2,20 @@
 
 Ready-to-run workloads for Confidential VMs. Published examples are built,
 registered on Hoodi, and attached to this repo's GitHub Releases, so you can
-pull and deploy them without rebuilding. Local examples can be built from source
-with `atakit workload build`.
+pull and deploy them without rebuilding. Local smoke examples can be built from
+source with `atakit workload build`.
 
-| Example | Version | What it demonstrates |
+| Example | Checkout version | What it demonstrates |
 | --- | --- | --- |
 | [fedora-oci](fedora-oci/) | `v0.0.13` | Fedora shell-in box with SSH and debugging/networking tools |
 | [multi-container-example](multi-container-example/) | `v0.5.1` | Three containers sharing a persistent disk and container network |
-| [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.3` | Workload-owned baby-container image upload/update dashboard |
+| [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.3-splicefix-e2e` | Workload-owned baby-container image upload/update dashboard |
 | [peer-attestation-demo](peer-attestation-demo/) | `v0.0.3` | Two CVMs verify each other and communicate over an encrypted channel |
 | [iperf-benchmark](iperf-benchmark/) | `v0.1.0` | Minimal iperf3 server for TCP/UDP throughput testing |
+| [storage-ip-env-smoke](storage-ip-env-smoke/) | `v0.1.0` | Data-disk, IP, environment, and baby-container storage smoke test |
 | [selective-data-smoke](selective-data-smoke/) | `v0.1.0` | Manifest v4 selective measured and unmeasured data mounts |
 
-The current published base image is `automata-linux:v0.2.4-debug`. The quick
+The current published base image is `automata-linux:v0.2.5-debug`. The quick
 start below follows the GCP TDX `c3-standard-4` path previously validated on
 Hoodi.
 
@@ -25,11 +26,11 @@ For a fuller deployment walkthrough, see
 
 Current published base image:
 
-- Image: `automata-linux:v0.2.4-debug`
+- Image: `automata-linux:v0.2.5-debug`
 - Hoodi base image ID:
-  `0xc1beb88ace5e6ed3d617779e5c77fe89777387b578c92f9a60ae18edc217beb2`
+  `0x59292627de53113d63ae83b79044c6f51e4aaa75baabff0bd3b21fef5ec44e97`
 - GitHub release:
-  `https://github.com/automata-network/automata-linux/releases/tag/v0.2.4-debug`
+  `https://github.com/automata-network/automata-linux/releases/tag/v0.2.5-debug`
 
 Published platform profiles:
 
@@ -112,7 +113,7 @@ chain = "hoodi"
 registration = "required"
 owner_key = "owner"
 gas_wallet = "gas"
-image = "automata-linux:v0.2.4-debug"
+image = "automata-linux:v0.2.5-debug"
 
 [cloud.providers.gcp-tdx]
 platform = "gcp"
@@ -132,7 +133,7 @@ serial-port-enable = "true"
 Pull the published base image:
 
 ```sh
-atakit image pull automata-linux:v0.2.4-debug gcp
+atakit image pull automata-linux:v0.2.5-debug gcp
 ```
 
 Pull and verify the published workload archives:
@@ -144,15 +145,16 @@ atakit workload pull baby-container-dynamic-update:v0.1.3 --verify
 atakit workload pull peer-attestation-demo:v0.0.3 --verify
 ```
 
-Build the local iperf example from source:
+Build local examples from source when using this checkout's manifest versions:
 
 ```sh
 atakit workload build -d cvm-workload-examples/iperf-benchmark
+atakit workload build -d cvm-workload-examples/storage-ip-env-smoke
 ```
 
 ## Deploy examples
 
-Deploy the three standalone examples:
+Deploy the four standalone examples:
 
 ```sh
 atakit cloud deploy fedora-oci:v0.0.13 \
@@ -306,6 +308,7 @@ Destroy deployments when done:
 atakit cloud destroy fedora-oci-demo --yes
 atakit cloud destroy multi-container-demo --yes
 atakit cloud destroy baby-container-demo --yes
+atakit cloud destroy iperf-benchmark-demo --yes
 atakit cloud destroy peer-demo-alpha peer-demo-beta --yes
 ```
 
@@ -316,7 +319,7 @@ atakit cloud ls
 ```
 
 The deploy flow imports the base image into the selected GCP project as
-`automata-linux-v0-2-2-debug`. The cleanup commands above remove the example
+`automata-linux-v0-2-5-debug`. The cleanup commands above remove the example
 deployments, firewalls, and the multi-container persistent disk; they do not
 delete that reusable project image.
 
