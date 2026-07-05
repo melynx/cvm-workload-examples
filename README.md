@@ -2,8 +2,8 @@
 
 Ready-to-run workloads for Confidential VMs. Published examples are built,
 registered on Hoodi, and attached to this repo's GitHub Releases, so you can
-pull and deploy them without rebuilding. Local smoke examples can be built from
-source with `atakit workload build`.
+pull and deploy them without rebuilding. Local smoke and regression examples can
+be built from source with `atakit workload build`.
 
 | Example | Checkout version | What it demonstrates |
 | --- | --- | --- |
@@ -12,8 +12,10 @@ source with `atakit workload build`.
 | [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.3-splicefix-e2e` | Workload-owned baby-container image upload/update dashboard |
 | [peer-attestation-demo](peer-attestation-demo/) | `v0.0.3` | Two CVMs verify each other and communicate over an encrypted channel |
 | [iperf-benchmark](iperf-benchmark/) | `v0.1.0` | Minimal iperf3 server for TCP/UDP throughput testing |
+| [remote-log-smoke](remote-log-smoke/) | `v0.1.0` | Remote log collection through a Fluent Bit sidecar |
 | [storage-ip-env-smoke](storage-ip-env-smoke/) | `v0.1.0` | Data-disk, IP, environment, and baby-container storage smoke test |
 | [selective-data-smoke](selective-data-smoke/) | `v0.1.0` | Manifest v4 selective measured and unmeasured data mounts |
+| [portal-pr-regression-smoke](portal-pr-regression-smoke/) | `v0.1.0` | Regression coverage for portal baby-container capability and storage behavior |
 
 The current published base image is `automata-linux:v0.2.5-debug`. The quick
 start below follows the GCP TDX `c3-standard-4` path previously validated on
@@ -149,7 +151,9 @@ Build local examples from source when using this checkout's manifest versions:
 
 ```sh
 atakit workload build -d cvm-workload-examples/iperf-benchmark
+atakit workload build -d cvm-workload-examples/remote-log-smoke
 atakit workload build -d cvm-workload-examples/storage-ip-env-smoke
+atakit workload build -d cvm-workload-examples/portal-pr-regression-smoke
 ```
 
 ## Deploy examples
@@ -246,6 +250,31 @@ Iperf benchmark:
 iperf3 -c <iperf-ip> -p 5201
 iperf3 -c <iperf-ip> -p 5201 -R
 iperf3 -c <iperf-ip> -p 5201 -u -b 100M
+```
+
+Remote log smoke:
+
+```sh
+cd remote-log-smoke
+python3 tools/log-receiver.py --host 0.0.0.0 --port 18080
+LOG_RECEIVER_HOST=<receiver-ip-or-dns> ./scripts/e2e-remote-logs.sh
+```
+
+Deploy the workload with the runtime directory printed by the script as
+`--unmeasured-data-dir`, then rerun the script with the same `LOG_RUN_ID` to
+poll the receiver.
+
+Portal PR regression smoke:
+
+```sh
+atakit workload build -d cvm-workload-examples/portal-pr-regression-smoke
+atakit cloud deploy -d cvm-workload-examples/portal-pr-regression-smoke \
+  --target gcp-c3-standard-4 \
+  --name portal-pr-regression-smoke \
+  --yes
+
+BASE_URL=http://<portal-pr-regression-ip>:3200 \
+  cvm-workload-examples/portal-pr-regression-smoke/scripts/e2e.sh
 ```
 
 Baby-container dynamic update:

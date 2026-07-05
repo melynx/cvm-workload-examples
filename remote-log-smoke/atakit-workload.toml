@@ -1,0 +1,66 @@
+format = 3
+
+[package]
+measured-data = [
+  "./config/fluent-bit-parsers.conf",
+  "./config/fluent-bit.conf",
+]
+unmeasured-data = ["./secrets/runtime.env"]
+
+[workload]
+name = "remote-log-smoke"
+version = "v0.1.0"
+base-image-mode = "blacklist"
+image = { build = ".", containerfile = "Containerfile" }
+restart = "unless-stopped"
+logging = { driver = "k8s-file", log-readers = ["log-shipper"] }
+entrypoint = ["/usr/local/bin/log-producer"]
+command = ["app"]
+
+[workload.environment]
+HEARTBEAT_INTERVAL_SECONDS = "5"
+
+[dependencies.worker]
+image = { build = ".", containerfile = "Containerfile" }
+restart = "unless-stopped"
+logging = { driver = "k8s-file", log-readers = ["log-shipper"] }
+entrypoint = ["/usr/local/bin/log-producer"]
+command = ["worker"]
+
+[dependencies.worker.environment]
+HEARTBEAT_INTERVAL_SECONDS = "5"
+
+[dependencies.scheduler]
+image = { build = ".", containerfile = "Containerfile" }
+restart = "unless-stopped"
+logging = { driver = "k8s-file", log-readers = ["log-shipper"] }
+entrypoint = ["/usr/local/bin/log-producer"]
+command = ["scheduler"]
+
+[dependencies.scheduler.environment]
+HEARTBEAT_INTERVAL_SECONDS = "5"
+
+[dependencies.metrics]
+image = { build = ".", containerfile = "Containerfile" }
+restart = "unless-stopped"
+logging = { driver = "k8s-file", log-readers = ["log-shipper"] }
+entrypoint = ["/usr/local/bin/log-producer"]
+command = ["metrics"]
+
+[dependencies.metrics.environment]
+HEARTBEAT_INTERVAL_SECONDS = "5"
+
+[dependencies.log-shipper]
+image = "docker.io/fluent/fluent-bit:4.2.4"
+restart = "unless-stopped"
+depends_on = ["metrics", "scheduler", "worker"]
+measured-data = true
+unmeasured-data = true
+unmeasured-env-file = "./secrets/runtime.env"
+workload-logs = true
+logging = { driver = "k8s-file" }
+entrypoint = ["/fluent-bit/bin/fluent-bit"]
+command = [
+  "-c",
+  "/atakit-portal/measured-data/config/fluent-bit.conf",
+]

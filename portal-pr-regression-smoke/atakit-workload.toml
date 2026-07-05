@@ -1,0 +1,56 @@
+format = 3
+
+[workload]
+name = "portal-pr-regression-smoke"
+version = "v0.1.0"
+base-image-mode = "blacklist"
+image = { build = ".", containerfile = "Containerfile" }
+ports = ["3200:3200/tcp"]
+restart = "unless-stopped"
+atakit-portal = true
+
+[workload.environment]
+SMOKE_PORT = "3200"
+PORTAL_SOCKET = "/run/atakit-portal.sock"
+BABY_SLOT = "regression-worker"
+
+[workload.storage.diskroot]
+disk = "regression-data"
+base-path = "/"
+mount-path = "/mnt/diskroot"
+read-only = false
+
+[baby-container]
+enabled = true
+max-instances = 1
+
+[baby-container.slots.regression-worker]
+parent-service = "portal-pr-regression-smoke"
+image-selection = "single"
+max-instances = 1
+
+[baby-container.slots.regression-worker.lifecycle]
+image-retention = "session"
+instance-retention = "ephemeral"
+restart = "manual"
+rootfs = "read-only"
+
+[baby-container.slots.regression-worker.logging]
+driver = "k8s-file"
+
+[baby-container.slots.regression-worker.storage.workspace]
+disk = "regression-data"
+base-path = "/baby"
+mount-path = "/workspace"
+retention = "session"
+scope = "slot"
+read-only = false
+
+[baby-container.slots.regression-worker.storage.workspace.permissions]
+baby = "rw"
+parent = "none"
+
+[disks.regression-data]
+index = 10
+size = "10GB"
+encryption = { unlock_method = [], bind = [] }
