@@ -12,6 +12,7 @@ with `atakit workload build`.
 | [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.3` | Workload-owned baby-container image upload/update dashboard |
 | [peer-attestation-demo](peer-attestation-demo/) | `v0.0.3` | Two CVMs verify each other and communicate over an encrypted channel |
 | [iperf-benchmark](iperf-benchmark/) | `v0.1.0` | Minimal iperf3 server for TCP/UDP throughput testing |
+| [selective-data-smoke](selective-data-smoke/) | `v0.1.0` | Manifest v4 selective measured and unmeasured data mounts |
 
 The current published base image is `automata-linux:v0.2.4-debug`. The quick
 start below follows the GCP TDX `c3-standard-4` path previously validated on
