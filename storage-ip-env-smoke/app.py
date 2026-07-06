@@ -83,7 +83,7 @@ def probe_helper():
 
 
 def probe_env_and_data():
-    measured_path = Path("/atakit-portal/measured-data/measured-data/config.txt")
+    measured_path = Path("/atakit-portal/measured-data/config.txt")
     tree_path = Path("/atakit-portal/unmeasured-data/runtime/tree/nested/value.txt")
     result = {
         "measured_env": os.environ.get("MEASURED_ENV_VALUE", ""),

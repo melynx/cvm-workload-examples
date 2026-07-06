@@ -1,12 +1,12 @@
-format = 3
+format = 4
 
 [package]
-measured-data = ["./measured-data/config.txt"]
-unmeasured-data = ["./runtime"]
+measured-data = ["/config.txt"]
+unmeasured-data = ["/runtime/"]
 
 [workload]
 name = "storage-ip-env-smoke"
-version = "v0.1.0"
+version = "v0.1.1"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3100:3100/tcp"]
@@ -16,7 +16,7 @@ ip-env = true
 measured-data = true
 unmeasured-data = true
 env-file = "./measured.env"
-unmeasured-env-file = "./runtime/secrets/runtime.env"
+unmeasured-env-file = "/runtime/secrets/runtime.env"
 
 [workload.environment]
 SMOKE_PORT = "3100"
@@ -39,7 +39,7 @@ image = { build = ".", containerfile = "Containerfile.helper" }
 restart = "unless-stopped"
 ip-env = true
 env-file = "./measured.env"
-unmeasured-env-file = "./runtime/secrets/runtime.env"
+unmeasured-env-file = "/runtime/secrets/runtime.env"
 
 [dependencies.helper.environment]
 HELPER_PORT = "3101"

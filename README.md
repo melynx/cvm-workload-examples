@@ -7,15 +7,15 @@ be built from source with `atakit workload build`.
 
 | Example | Checkout version | What it demonstrates |
 | --- | --- | --- |
-| [fedora-oci](fedora-oci/) | `v0.0.13` | Fedora shell-in box with SSH and debugging/networking tools |
-| [multi-container-example](multi-container-example/) | `v0.5.1` | Three containers sharing a persistent disk and container network |
-| [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.3-splicefix-e2e` | Workload-owned baby-container image upload/update dashboard |
-| [peer-attestation-demo](peer-attestation-demo/) | `v0.0.3` | Two CVMs verify each other and communicate over an encrypted channel |
-| [iperf-benchmark](iperf-benchmark/) | `v0.1.0` | Minimal iperf3 server for TCP/UDP throughput testing |
-| [remote-log-smoke](remote-log-smoke/) | `v0.1.0` | Remote log collection through a Fluent Bit sidecar |
-| [storage-ip-env-smoke](storage-ip-env-smoke/) | `v0.1.0` | Data-disk, IP, environment, and baby-container storage smoke test |
-| [selective-data-smoke](selective-data-smoke/) | `v0.1.0` | Manifest v4 selective measured and unmeasured data mounts |
-| [portal-pr-regression-smoke](portal-pr-regression-smoke/) | `v0.1.0` | Regression coverage for portal baby-container capability and storage behavior |
+| [fedora-oci](fedora-oci/) | `v0.0.14` | Fedora shell-in box with SSH and debugging/networking tools |
+| [multi-container-example](multi-container-example/) | `v0.5.2` | Three containers sharing a persistent disk and container network |
+| [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.4-splicefix-e2e` | Workload-owned baby-container image upload/update dashboard |
+| [peer-attestation-demo](peer-attestation-demo/) | `v0.0.4` | Two CVMs verify each other and communicate over an encrypted channel |
+| [iperf-benchmark](iperf-benchmark/) | `v0.1.1` | Minimal iperf3 server for TCP/UDP throughput testing |
+| [remote-log-smoke](remote-log-smoke/) | `v0.1.1` | Remote log collection through a Fluent Bit sidecar |
+| [storage-ip-env-smoke](storage-ip-env-smoke/) | `v0.1.1` | Data-disk, IP, environment, and baby-container storage smoke test |
+| [selective-data-smoke](selective-data-smoke/) | `v0.1.1` | Manifest v4 selective measured and unmeasured data mounts |
+| [portal-pr-regression-smoke](portal-pr-regression-smoke/) | `v0.1.1` | Regression coverage for portal baby-container capability and storage behavior |
 
 The current published base image is `automata-linux:v0.2.5-debug`. The quick
 start below follows the GCP TDX `c3-standard-4` path previously validated on
@@ -141,10 +141,10 @@ atakit image pull automata-linux:v0.2.5-debug gcp
 Pull and verify the published workload archives:
 
 ```sh
-atakit workload pull fedora-oci:v0.0.13 --verify
-atakit workload pull multi-container-example:v0.5.1 --verify
+atakit workload pull fedora-oci:v0.0.14 --verify
+atakit workload pull multi-container-example:v0.5.2 --verify
 atakit workload pull baby-container-dynamic-update:v0.1.3 --verify
-atakit workload pull peer-attestation-demo:v0.0.3 --verify
+atakit workload pull peer-attestation-demo:v0.0.4 --verify
 ```
 
 Build local examples from source when using this checkout's manifest versions:
@@ -161,12 +161,12 @@ atakit workload build -d cvm-workload-examples/portal-pr-regression-smoke
 Deploy the four standalone examples:
 
 ```sh
-atakit cloud deploy fedora-oci:v0.0.13 \
+atakit cloud deploy fedora-oci:v0.0.14 \
   --target gcp-c3-standard-4 \
   --name fedora-oci-demo \
   --yes
 
-atakit cloud deploy multi-container-example:v0.5.1 \
+atakit cloud deploy multi-container-example:v0.5.2 \
   --target gcp-c3-standard-4 \
   --name multi-container-demo \
   --yes
@@ -176,7 +176,7 @@ atakit cloud deploy baby-container-dynamic-update:v0.1.3 \
   --name baby-container-demo \
   --yes
 
-atakit cloud deploy iperf-benchmark:v0.1.0 \
+atakit cloud deploy iperf-benchmark:v0.1.1 \
   --target gcp-c3-standard-4 \
   --name iperf-benchmark-demo \
   --yes
@@ -191,10 +191,10 @@ cat > peer-alpha/peer-config.json <<EOF
 {"node_name":"alpha"}
 EOF
 
-atakit cloud deploy peer-attestation-demo:v0.0.3 \
+atakit cloud deploy peer-attestation-demo:v0.0.4 \
   --target gcp-c3-standard-4 \
   --name peer-demo-alpha \
-  --unmeasured-data-dir peer-alpha \
+  --unmeasured-data-root peer-alpha \
   --yes
 
 atakit cloud status peer-demo-alpha --live
@@ -207,10 +207,10 @@ cat > peer-beta/peer-config.json <<EOF
 {"node_name":"beta","peer_addr":"<alpha-ip>:4000"}
 EOF
 
-atakit cloud deploy peer-attestation-demo:v0.0.3 \
+atakit cloud deploy peer-attestation-demo:v0.0.4 \
   --target gcp-c3-standard-4 \
   --name peer-demo-beta \
-  --unmeasured-data-dir peer-beta \
+  --unmeasured-data-root peer-beta \
   --yes
 ```
 
@@ -261,7 +261,7 @@ LOG_RECEIVER_HOST=<receiver-ip-or-dns> ./scripts/e2e-remote-logs.sh
 ```
 
 Deploy the workload with the runtime directory printed by the script as
-`--unmeasured-data-dir`, then rerun the script with the same `LOG_RUN_ID` to
+`--unmeasured-data-root`, then rerun the script with the same `LOG_RUN_ID` to
 poll the receiver.
 
 Portal PR regression smoke:
@@ -364,7 +364,7 @@ atakit workload create my-service
 Edit `my-service/atakit-workload.toml`:
 
 ```toml
-format = 2
+format = 4
 
 [workload]
 name = "my-service"

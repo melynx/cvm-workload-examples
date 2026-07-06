@@ -4,11 +4,11 @@
 # baby-container slots, then accepts helper image uploads at runtime and
 # forwards them to the portal over /run/atakit-portal.sock.
 
-format = 2
+format = 4
 
 [workload]
 name = "baby-container-dynamic-update"
-version = "v0.1.3-splicefix-e2e"
+version = "v0.1.4-splicefix-e2e"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000/tcp"]
@@ -16,8 +16,11 @@ restart = "unless-stopped"
 atakit-portal = true
 gid-group = "dashboard"
 
-[workload.disks]
-upload-spool = "/var/lib/baby-dashboard/uploads"
+[workload.storage.upload-spool]
+disk = "upload-spool"
+base-path = "/"
+mount-path = "/var/lib/baby-dashboard/uploads"
+read-only = false
 
 [workload.environment]
 DASHBOARD_PORT = "3000"

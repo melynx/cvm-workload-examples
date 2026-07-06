@@ -1,8 +1,8 @@
-format = 3
+format = 4
 
 [workload]
 name = "portal-pr-regression-smoke"
-version = "v0.1.0"
+version = "v0.1.1"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3200:3200/tcp"]

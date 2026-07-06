@@ -8,18 +8,21 @@
 # Demonstrates: dependencies, shared disks, inter-container networking,
 # per-container environment, depends_on ordering.
 
-format = 2
+format = 4
 
 [workload]
 name = "multi-container-example"
-version = "v0.5.1"
+version = "v0.5.2"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000"]
 restart = "unless-stopped"
 
-[workload.disks]
-shared-data = "/shared"
+[workload.storage.shared-data]
+disk = "shared-data"
+base-path = "/"
+mount-path = "/shared"
+read-only = false
 
 # ── workers ──────────────────────────────────────────────────────
 
@@ -32,8 +35,11 @@ restart = "unless-stopped"
 WORKER_NAME = "worker-a"
 WORKER_PORT = "3001"
 
-[dependencies.worker-a.disks]
-shared-data = "/shared"
+[dependencies.worker-a.storage.shared-data]
+disk = "shared-data"
+base-path = "/"
+mount-path = "/shared"
+read-only = false
 
 [dependencies.worker-b]
 image = { build = ".", containerfile = "Containerfile.worker" }
@@ -45,8 +51,11 @@ depends_on = ["worker-a"]
 WORKER_NAME = "worker-b"
 WORKER_PORT = "3002"
 
-[dependencies.worker-b.disks]
-shared-data = "/shared"
+[dependencies.worker-b.storage.shared-data]
+disk = "shared-data"
+base-path = "/"
+mount-path = "/shared"
+read-only = false
 
 # ── shared persistent disk ───────────────────────────────────────
 

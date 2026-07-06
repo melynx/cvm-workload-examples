@@ -8,7 +8,12 @@ checks = {
     "public_measured_absent": not Path("/atakit-portal/measured-data/data/public.txt").exists(),
     "private_unmeasured": Path("/atakit-portal/unmeasured-data/runtime/private.env").exists(),
     "public_unmeasured_absent": not Path("/atakit-portal/unmeasured-data/runtime/public.env").exists(),
+    "root_unmeasured_absent": not Path("/atakit-portal/unmeasured-data/myconfig.env").exists(),
+    "second_level_unmeasured_absent": not Path(
+        "/atakit-portal/unmeasured-data/second_level/something.txt"
+    ).exists(),
     "PRIVATE_TOKEN": bool(os.environ.get("PRIVATE_TOKEN")),
+    "ROOT_TOKEN_absent": not bool(os.environ.get("ROOT_TOKEN")),
 }
 
 print(checks, flush=True)

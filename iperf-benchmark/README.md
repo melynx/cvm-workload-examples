@@ -22,13 +22,13 @@ atakit workload build -d cvm-workload-examples/iperf-benchmark
 This creates:
 
 ```text
-cvm-workload-examples/iperf-benchmark/iperf-benchmark-v0.1.0.atawl
+cvm-workload-examples/iperf-benchmark/iperf-benchmark-v0.1.1.atawl
 ```
 
 ## Deploy
 
 ```sh
-atakit cloud deploy iperf-benchmark:v0.1.0 \
+atakit cloud deploy iperf-benchmark:v0.1.1 \
   --target gcp-c3-standard-4 \
   --name iperf-benchmark-demo \
   --yes
