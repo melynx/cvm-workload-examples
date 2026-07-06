@@ -5,8 +5,8 @@
 # `atakit workload build` compiles it into a deterministic .atawl archive
 # containing manifest.json + images + measured-data.
 
-# Schema version. Must be 2.
-format = 2
+# Schema version. Current: 4.
+format = 4
 
 # ── package data ────────────────────────────────────────────────
 #
@@ -16,18 +16,20 @@ format = 2
 # via per-container measured-data / unmeasured-data booleans.
 #
 # measured-data: files included in the archive and integrity-verified via PCR23.
-# Paths must start with "./" and must not contain "..". Files must exist
-# at build time. Mounted read-only at /atakit-portal/measured-data/ in containers
-# that set measured-data = true.
+# Paths are logical absolute paths under the measured-data root (default:
+# <workload-dir>/measured-data). Files must exist at build time. Mounted
+# read-only at /atakit-portal/measured-data/ in containers that set
+# measured-data = true.
 #
 # unmeasured-data: operator-provided files NOT included in the archive.
-# Not verified by PCR23 -- the operator supplies them at deploy time.
-# Mounted read-only at /atakit-portal/unmeasured-data/ in containers
-# that set unmeasured-data = true.
+# Paths are logical absolute paths under the unmeasured-data root (default:
+# <workload-dir>/unmeasured-data). Not verified by PCR23 -- the operator
+# supplies them at deploy time. Mounted read-only at
+# /atakit-portal/unmeasured-data/ in containers that set unmeasured-data = true.
 #
 # [package]
-# measured-data = ["./config/cert.pem", "./config/settings.json"]
-# unmeasured-data = ["./runtime-data/signing-key.pem"]
+# measured-data = ["/config/cert.pem", "/config/settings.json"]
+# unmeasured-data = ["/runtime-data/signing-key.pem"]
 
 [workload]
 # Workload identity. The on-chain workload ID is derived from name + version
@@ -36,7 +38,7 @@ format = 2
 # name: alphanumeric + hyphens, must not start with a hyphen.
 # version: must start with "v", followed by alphanumeric/.-_ chars.
 name = "fedora-oci"
-version = "v0.0.13"
+version = "v0.0.14"
 
 # ── on-chain parameters ──────────────────────────────────────────
 #
@@ -143,10 +145,13 @@ RUST_LOG = "info"
 
 # ── persistent disk mounts ───────────────────────────────────────
 #
-# Maps disk names (defined in [disks.*] below) to container mount paths.
+# Maps disk names (defined in [disks.*] below) to container storage mounts.
 # Disks can be shared between the workload and dependencies.
-# [workload.disks]
-# my-disk = "/data"
+# [workload.storage.data]
+# disk = "my-disk"
+# base-path = "/"
+# mount-path = "/data"
+# read-only = false
 
 # ── dependencies ──────────────────────────────────────────────────
 #
@@ -162,8 +167,11 @@ RUST_LOG = "info"
 # depends_on = []
 # [dependencies.redis.environment]
 # REDIS_PASSWORD = "secret"
-# [dependencies.redis.disks]
-# redis-data = "/cache"
+# [dependencies.redis.storage.cache]
+# disk = "redis-data"
+# base-path = "/"
+# mount-path = "/cache"
+# read-only = false
 
 # ── firewall ─────────────────────────────────────────────────────
 #
@@ -181,19 +189,10 @@ RUST_LOG = "info"
 allow = ["4000/tcp", "5000/udp"]
 # deny = [3000, "8080/udp"]
 
-# ── baby containers ──────────────────────────────────────────────
-#
-# Allow ephemeral sidecar containers spawned at runtime via the portal's
-# /baby-container/* API. These are not defined in the workload config --
-# they are created dynamically by the main workload container.
-[baby-container]
-allow = true
-# max_count = 2                         # max concurrent baby containers (default: 1)
-
 # ── persistent disks ─────────────────────────────────────────────
 #
 # Define persistent disks that survive container restarts. Referenced by
-# [workload.disks] or [dependencies.<name>.disks]. Disks can be shared
+# [workload.storage.*] or [dependencies.<name>.storage.*]. Disks can be shared
 # between multiple containers.
 #
 # index: device LUN / index. Must be >= 10, unique across all disks.

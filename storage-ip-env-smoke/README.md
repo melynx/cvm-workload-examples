@@ -1,6 +1,6 @@
 # storage-ip-env-smoke
 
-Small e2e workload for manifest v3 storage and IP environment support.
+Small e2e workload for manifest v4 storage and IP environment support.
 
 It checks:
 

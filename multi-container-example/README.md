@@ -3,7 +3,7 @@
 Demonstrates a multi-container workload with three containers sharing a
 persistent disk and communicating over the workload container network.
 
-Published version: `multi-container-example:v0.5.1`.
+Published version: `multi-container-example:v0.5.2`.
 
 ## Architecture
 
@@ -54,10 +54,10 @@ See the [repo README](../README.md) or
 
 ```bash
 # Download the pre-built, on-chain-published archive into your local store.
-atakit workload pull multi-container-example:v0.5.1 --verify
+atakit workload pull multi-container-example:v0.5.2 --verify
 
 # Deploy to a configured Hoodi cloud target.
-atakit cloud deploy multi-container-example:v0.5.1 \
+atakit cloud deploy multi-container-example:v0.5.2 \
   --target gcp-c3-standard-4 \
   --name multi-container-demo \
   --yes

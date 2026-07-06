@@ -72,21 +72,21 @@ serial-port-enable = "true"
 ```sh
 atakit image pull automata-linux:v0.2.5-debug gcp
 
-atakit workload pull fedora-oci:v0.0.13 --verify
-atakit workload pull multi-container-example:v0.5.1 --verify
+atakit workload pull fedora-oci:v0.0.14 --verify
+atakit workload pull multi-container-example:v0.5.2 --verify
 atakit workload pull baby-container-dynamic-update:v0.1.3 --verify
-atakit workload pull peer-attestation-demo:v0.0.3 --verify
+atakit workload pull peer-attestation-demo:v0.0.4 --verify
 ```
 
 ## Deploy standalone examples
 
 ```sh
-atakit cloud deploy fedora-oci:v0.0.13 \
+atakit cloud deploy fedora-oci:v0.0.14 \
   --target gcp-c3-standard-4 \
   --name fedora-oci-demo \
   --yes
 
-atakit cloud deploy multi-container-example:v0.5.1 \
+atakit cloud deploy multi-container-example:v0.5.2 \
   --target gcp-c3-standard-4 \
   --name multi-container-demo \
   --yes
@@ -115,10 +115,10 @@ cat > peer-alpha/peer-config.json <<EOF
 {"node_name":"alpha"}
 EOF
 
-atakit cloud deploy peer-attestation-demo:v0.0.3 \
+atakit cloud deploy peer-attestation-demo:v0.0.4 \
   --target gcp-c3-standard-4 \
   --name peer-demo-alpha \
-  --unmeasured-data-dir peer-alpha \
+  --unmeasured-data-root peer-alpha \
   --yes
 
 atakit cloud status peer-demo-alpha --live
@@ -131,10 +131,10 @@ cat > peer-beta/peer-config.json <<EOF
 {"node_name":"beta","peer_addr":"<alpha-ip>:4000"}
 EOF
 
-atakit cloud deploy peer-attestation-demo:v0.0.3 \
+atakit cloud deploy peer-attestation-demo:v0.0.4 \
   --target gcp-c3-standard-4 \
   --name peer-demo-beta \
-  --unmeasured-data-dir peer-beta \
+  --unmeasured-data-root peer-beta \
   --yes
 ```
 

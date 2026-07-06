@@ -9,6 +9,10 @@ CHECKS = {
     "private_measured_absent": Path("/atakit-portal/measured-data/data/private.txt"),
     "public_unmeasured": Path("/atakit-portal/unmeasured-data/runtime/public.env"),
     "private_unmeasured_absent": Path("/atakit-portal/unmeasured-data/runtime/private.env"),
+    "root_unmeasured": Path("/atakit-portal/unmeasured-data/myconfig.env"),
+    "second_level_unmeasured": Path(
+        "/atakit-portal/unmeasured-data/second_level/something.txt"
+    ),
 }
 
 
@@ -19,7 +23,10 @@ class Handler(BaseHTTPRequestHandler):
             "private_measured_absent": not CHECKS["private_measured_absent"].exists(),
             "public_unmeasured": CHECKS["public_unmeasured"].exists(),
             "private_unmeasured_absent": not CHECKS["private_unmeasured_absent"].exists(),
+            "root_unmeasured": CHECKS["root_unmeasured"].exists(),
+            "second_level_unmeasured": CHECKS["second_level_unmeasured"].exists(),
             "PUBLIC_TOKEN": os.environ.get("PUBLIC_TOKEN", ""),
+            "ROOT_TOKEN": os.environ.get("ROOT_TOKEN", ""),
         }
         body = json.dumps(result, sort_keys=True).encode()
         self.send_response(200)

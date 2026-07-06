@@ -36,7 +36,7 @@ else
   run_atakit workload build -d "${ROOT}" --no-store
 fi
 
-ARCHIVE="${ROOT}/remote-log-smoke-v0.1.0.atawl"
+ARCHIVE="${ROOT}/remote-log-smoke-v0.1.1.atawl"
 MANIFEST_JSON="${ROOT}/.runtime/${LOG_RUN_ID}/manifest.json"
 zstd -dc "${ARCHIVE}" | tar -xOf - remote-log-smoke/manifest.json > "${MANIFEST_JSON}"
 
@@ -57,7 +57,7 @@ echo "Runtime config: ${RUNTIME_ROOT}/secrets/runtime.env"
 echo "Run receiver on the log host:"
 echo "  python3 ${ROOT}/tools/log-receiver.py --host 0.0.0.0 --port ${LOG_RECEIVER_PORT}"
 echo "Deploy/init with:"
-echo "  atakit cloud deploy -d ${ROOT} --unmeasured-data-dir ${RUNTIME_ROOT} --target <target> --name remote-log-smoke --yes"
+echo "  atakit cloud deploy -d ${ROOT} --unmeasured-data-root ${RUNTIME_ROOT} --target <target> --name remote-log-smoke --yes"
 echo "Run id: ${LOG_RUN_ID}"
 
 if [ "${BUILD_ONLY}" = "1" ]; then

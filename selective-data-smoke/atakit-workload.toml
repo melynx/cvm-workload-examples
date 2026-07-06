@@ -1,19 +1,24 @@
 format = 4
 
 [package]
-measured-data = ["./data/public.txt", "./data/private.txt"]
-unmeasured-data = ["./runtime/public.env", "./runtime/private.env"]
+measured-data = ["/data/public.txt", "/data/private.txt"]
+unmeasured-data = [
+  "/myconfig.env",
+  "/runtime/public.env",
+  "/runtime/private.env",
+  "/second_level/",
+]
 
 [workload]
 name = "selective-data-smoke"
-version = "v0.1.0"
+version = "v0.1.1"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3120:3120/tcp"]
 restart = "unless-stopped"
-measured-data = ["./data/public.txt"]
-unmeasured-data = ["./runtime/public.env"]
-unmeasured-env-file = "./runtime/public.env"
+measured-data = ["/data/public.txt"]
+unmeasured-data = ["/myconfig.env", "/runtime/public.env", "/second_level/"]
+unmeasured-env-file = ["/myconfig.env", "/runtime/public.env"]
 
 [workload.environment]
 SMOKE_PORT = "3120"
@@ -21,9 +26,9 @@ SMOKE_PORT = "3120"
 [dependencies.sidecar]
 image = { build = ".", containerfile = "Containerfile.sidecar" }
 restart = "unless-stopped"
-measured-data = ["./data/private.txt"]
-unmeasured-data = ["./runtime/private.env"]
-unmeasured-env-file = "./runtime/private.env"
+measured-data = ["/data/private.txt"]
+unmeasured-data = ["/runtime/private.env"]
+unmeasured-env-file = "/runtime/private.env"
 
 [dependencies.sidecar.environment]
 SIDECAR_PORT = "3121"

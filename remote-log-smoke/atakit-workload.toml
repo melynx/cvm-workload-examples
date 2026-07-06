@@ -1,15 +1,15 @@
-format = 3
+format = 4
 
 [package]
 measured-data = [
-  "./config/fluent-bit-parsers.conf",
-  "./config/fluent-bit.conf",
+  "/config/fluent-bit-parsers.conf",
+  "/config/fluent-bit.conf",
 ]
-unmeasured-data = ["./secrets/runtime.env"]
+unmeasured-data = ["/secrets/runtime.env"]
 
 [workload]
 name = "remote-log-smoke"
-version = "v0.1.0"
+version = "v0.1.1"
 base-image-mode = "blacklist"
 image = { build = ".", containerfile = "Containerfile" }
 restart = "unless-stopped"
@@ -56,7 +56,7 @@ restart = "unless-stopped"
 depends_on = ["metrics", "scheduler", "worker"]
 measured-data = true
 unmeasured-data = true
-unmeasured-env-file = "./secrets/runtime.env"
+unmeasured-env-file = "/secrets/runtime.env"
 workload-logs = true
 logging = { driver = "k8s-file" }
 entrypoint = ["/fluent-bit/bin/fluent-bit"]

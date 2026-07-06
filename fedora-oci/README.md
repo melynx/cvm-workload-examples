@@ -4,7 +4,7 @@ A Fedora-based OCI container with SSH and a broad set of debugging / networking
 tools, packaged as an atakit workload. Useful as a shell-in environment for
 poking around inside a CVM.
 
-Published version: `fedora-oci:v0.0.13`.
+Published version: `fedora-oci:v0.0.14`.
 
 Use this workload when you need a debug container inside a deployed CVM. The
 base image itself is minimal and does not provide SSH; this workload exposes SSH
@@ -64,10 +64,10 @@ See the [repo README](../README.md) or
 
 ```bash
 # Download the pre-built, on-chain-published archive into your local store.
-atakit workload pull fedora-oci:v0.0.13 --verify
+atakit workload pull fedora-oci:v0.0.14 --verify
 
 # Deploy to a configured Hoodi cloud target.
-atakit cloud deploy fedora-oci:v0.0.13 \
+atakit cloud deploy fedora-oci:v0.0.14 \
   --target gcp-c3-standard-4 \
   --name fedora-oci-demo \
   --yes

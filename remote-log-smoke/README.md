@@ -37,7 +37,7 @@ atakit workload build -d .
 
 For a full run, set `LOG_RECEIVER_HOST` to the receiver address and run the
 script once to build the workload and print the runtime directory. Deploy the
-workload with that directory as `--unmeasured-data-dir`, then rerun the script
+workload with that directory as `--unmeasured-data-root`, then rerun the script
 with the same `LOG_RUN_ID` so it can poll the receiver:
 
 ```sh
@@ -45,7 +45,7 @@ LOG_RECEIVER_HOST=<receiver-ip-or-dns> ./scripts/e2e-remote-logs.sh
 atakit cloud deploy -d . \
   --target gcp-c3-standard-4 \
   --name remote-log-smoke \
-  --unmeasured-data-dir <printed-runtime-dir> \
+  --unmeasured-data-root <printed-runtime-dir> \
   --yes
 LOG_RECEIVER_HOST=<receiver-ip-or-dns> LOG_RUN_ID=<same-run-id> ./scripts/e2e-remote-logs.sh
 ```
