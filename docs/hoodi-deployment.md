@@ -1,13 +1,13 @@
 # Hoodi Deployment Guide
 
 This guide deploys the published workload examples with the published
-`automata-linux:v0.2.4-debug` base image on Hoodi.
+`automata-linux:v0.2.5-debug` base image on Hoodi.
 
 The current published base image is:
 
-- Base image: `automata-linux:v0.2.4-debug`
+- Base image: `automata-linux:v0.2.5-debug`
 - Hoodi base image ID:
-  `0xc1beb88ace5e6ed3d617779e5c77fe89777387b578c92f9a60ae18edc217beb2`
+  `0x59292627de53113d63ae83b79044c6f51e4aaa75baabff0bd3b21fef5ec44e97`
 - Published workload repository: `melynx/cvm-workload-examples`
 
 The deployment flow below follows the GCP TDX `c3-standard-4` path previously
@@ -52,7 +52,7 @@ chain = "hoodi"
 registration = "required"
 owner_key = "owner"
 gas_wallet = "gas"
-image = "automata-linux:v0.2.4-debug"
+image = "automata-linux:v0.2.5-debug"
 
 [cloud.providers.gcp-tdx]
 platform = "gcp"
@@ -70,7 +70,7 @@ serial-port-enable = "true"
 ## Pull published artifacts
 
 ```sh
-atakit image pull automata-linux:v0.2.4-debug gcp
+atakit image pull automata-linux:v0.2.5-debug gcp
 
 atakit workload pull fedora-oci:v0.0.13 --verify
 atakit workload pull multi-container-example:v0.5.1 --verify
@@ -157,4 +157,4 @@ atakit cloud ls
 
 The destroy commands remove the deployments, firewalls, and workload disks.
 They do not remove the reusable imported cloud image
-`automata-linux-v0-2-2-debug`.
+`automata-linux-v0-2-5-debug`.

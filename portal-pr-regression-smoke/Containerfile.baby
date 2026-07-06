@@ -1,0 +1,6 @@
+FROM python:3.12-alpine
+WORKDIR /baby
+RUN mkdir /sandbox
+COPY baby.py .
+ENV PYTHONUNBUFFERED=1
+CMD ["python", "-u", "baby.py"]
