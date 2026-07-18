@@ -8,7 +8,7 @@
 # Demonstrates: dependencies, shared disks, inter-container networking,
 # per-container environment, depends_on ordering.
 
-format = 4
+format = 5
 
 [workload]
 name = "multi-container-example"
