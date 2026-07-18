@@ -364,7 +364,7 @@ atakit workload create my-service
 Edit `my-service/atakit-workload.toml`:
 
 ```toml
-format = 4
+format = 5
 
 [workload]
 name = "my-service"

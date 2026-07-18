@@ -4,7 +4,7 @@
 # baby-container slots, then accepts helper image uploads at runtime and
 # forwards them to the portal over /run/atakit-portal.sock.
 
-format = 4
+format = 5
 
 [workload]
 name = "baby-container-dynamic-update"

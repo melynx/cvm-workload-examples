@@ -1,6 +1,6 @@
 # Minimal iperf3 server workload for CVM network benchmarking.
 
-format = 4
+format = 5
 
 [workload]
 name = "iperf-benchmark"
