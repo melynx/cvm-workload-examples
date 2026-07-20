@@ -1,3 +1,4 @@
+import ipaddress
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -5,6 +6,14 @@ from pathlib import Path
 
 
 PORT = int(os.environ.get("HELPER_PORT", "3101"))
+
+
+def valid_ip(value):
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -23,16 +32,18 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             storage_error = str(exc)
 
+        public_ip = os.environ.get("ATAKIT_PUBLIC_IP", "")
+        internal_ip = os.environ.get("ATAKIT_INTERNAL_IP", "")
         body = {
             "ok": bool(
                 storage_ok
-                and os.environ.get("ATAKIT_PUBLIC_IP") is not None
-                and os.environ.get("ATAKIT_INTERNAL_IP") is not None
+                and valid_ip(public_ip)
+                and valid_ip(internal_ip)
                 and os.environ.get("MEASURED_ENV_VALUE") == "measured-env-ok"
                 and os.environ.get("UNMEASURED_ENV_VALUE") == "unmeasured-env-ok"
             ),
-            "public_ip": os.environ.get("ATAKIT_PUBLIC_IP", ""),
-            "internal_ip": os.environ.get("ATAKIT_INTERNAL_IP", ""),
+            "public_ip": public_ip,
+            "internal_ip": internal_ip,
             "measured_env": os.environ.get("MEASURED_ENV_VALUE", ""),
             "unmeasured_env": os.environ.get("UNMEASURED_ENV_VALUE", ""),
             "storage_ok": storage_ok,

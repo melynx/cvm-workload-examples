@@ -1,5 +1,6 @@
-import json
 import http.client
+import ipaddress
+import json
 import os
 import socket
 import urllib.parse
@@ -12,6 +13,14 @@ PORT = int(os.environ.get("SMOKE_PORT", "3100"))
 HELPER_URL = os.environ.get("HELPER_URL", "http://helper:3101/status")
 PORTAL_SOCKET = os.environ.get("PORTAL_SOCKET", "/run/atakit-portal.sock")
 BABY_SLOT = os.environ.get("BABY_SLOT", "smoke-worker")
+
+
+def valid_ip(value):
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
 
 
 class UnixHTTPConnection(http.client.HTTPConnection):
@@ -143,17 +152,21 @@ class Handler(BaseHTTPRequestHandler):
         storage = probe_storage()
         helper = probe_helper()
         env_data = probe_env_and_data()
+        public_ip = os.environ.get("ATAKIT_PUBLIC_IP", "")
+        internal_ip = os.environ.get("ATAKIT_INTERNAL_IP", "")
         body = {
             "ok": bool(
                 storage.get("rw_write")
                 and storage.get("ro_write_blocked")
                 and helper.get("ok")
                 and env_data.get("ok")
-                and os.environ.get("ATAKIT_PUBLIC_IP") is not None
-                and os.environ.get("ATAKIT_INTERNAL_IP") is not None
+                and valid_ip(public_ip)
+                and valid_ip(internal_ip)
+                and helper.get("public_ip") == public_ip
+                and helper.get("internal_ip") == internal_ip
             ),
-            "public_ip": os.environ.get("ATAKIT_PUBLIC_IP", ""),
-            "internal_ip": os.environ.get("ATAKIT_INTERNAL_IP", ""),
+            "public_ip": public_ip,
+            "internal_ip": internal_ip,
             "env_data": env_data,
             "storage": storage,
             "helper": helper,

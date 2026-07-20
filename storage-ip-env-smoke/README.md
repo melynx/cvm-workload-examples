@@ -1,6 +1,6 @@
 # storage-ip-env-smoke
 
-Small e2e workload for manifest v4 storage and IP environment support.
+Small end-to-end workload for manifest v5 storage and IP environment support.
 
 It checks:
 
@@ -9,6 +9,8 @@ It checks:
 - measured `env-file`
 - runtime `unmeasured-env-file`
 - nested `unmeasured-data` tree mounting
+- non-empty, valid `ATAKIT_PUBLIC_IP` and `ATAKIT_INTERNAL_IP` values
+- identical IP values in the main workload and dependency containers
 - `ip-env = true` on the workload and dependency containers
 - baby-container slot storage policy and `ip-env`
 

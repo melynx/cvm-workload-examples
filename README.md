@@ -13,7 +13,7 @@ be built from source with `atakit workload build`.
 | [peer-attestation-demo](peer-attestation-demo/) | `v0.0.4` | Two CVMs verify each other and communicate over an encrypted channel |
 | [iperf-benchmark](iperf-benchmark/) | `v0.1.1` | Minimal iperf3 server for TCP/UDP throughput testing |
 | [remote-log-smoke](remote-log-smoke/) | `v0.1.1` | Remote log collection through a Fluent Bit sidecar |
-| [storage-ip-env-smoke](storage-ip-env-smoke/) | `v0.1.1` | Data-disk, IP, environment, and baby-container storage smoke test |
+| [storage-ip-env-smoke](storage-ip-env-smoke/) | `v0.1.2` | Data-disk, non-empty IP, environment, and baby-container storage smoke test |
 | [selective-data-smoke](selective-data-smoke/) | `v0.1.1` | Manifest v4 selective measured and unmeasured data mounts |
 | [portal-pr-regression-smoke](portal-pr-regression-smoke/) | `v0.1.1` | Regression coverage for portal baby-container capability and storage behavior |
 
