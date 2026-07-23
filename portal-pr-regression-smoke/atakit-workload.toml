@@ -3,7 +3,8 @@ format = 5
 [workload]
 name = "portal-pr-regression-smoke"
 version = "v0.1.1"
-base-image-mode = "blacklist"
+base-image-mode = "whitelist"
+base-image = ["automata-linux:v0.2.7-debug"]
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3200:3200/tcp"]
 restart = "unless-stopped"

@@ -5,7 +5,8 @@ format = 5
 [workload]
 name = "iperf-benchmark"
 version = "v0.1.1"
-base-image-mode = "blacklist"
+base-image-mode = "whitelist"
+base-image = ["automata-linux:v0.2.7-debug"]
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["5201:5201"]
 restart = "unless-stopped"

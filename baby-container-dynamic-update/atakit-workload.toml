@@ -9,7 +9,8 @@ format = 5
 [workload]
 name = "baby-container-dynamic-update"
 version = "v0.1.4-splicefix-e2e"
-base-image-mode = "blacklist"
+base-image-mode = "whitelist"
+base-image = ["automata-linux:v0.2.7-debug"]
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000/tcp"]
 restart = "unless-stopped"

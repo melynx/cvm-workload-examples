@@ -1,4 +1,4 @@
-FROM fedora:latest
+FROM docker.io/library/fedora:latest
 
 LABEL maintainer="container"
 LABEL org.opencontainers.image.title="fedora-oci"
