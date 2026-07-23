@@ -8,7 +8,7 @@ format = 5
 
 [workload]
 name = "baby-container-dynamic-update"
-version = "v0.1.4-splicefix-e2e"
+version = "v0.1.5"
 base-image-mode = "whitelist"
 base-image = ["automata-linux:v0.2.7-debug"]
 image = { build = ".", containerfile = "Containerfile" }

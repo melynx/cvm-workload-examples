@@ -12,7 +12,7 @@ format = 5
 
 [workload]
 name = "multi-container-example"
-version = "v0.5.2"
+version = "v0.5.3"
 base-image-mode = "whitelist"
 base-image = ["automata-linux:v0.2.7-debug"]
 image = { build = ".", containerfile = "Containerfile" }

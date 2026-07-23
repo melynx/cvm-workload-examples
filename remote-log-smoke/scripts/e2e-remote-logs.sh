@@ -36,7 +36,7 @@ else
   run_atakit workload build -d "${ROOT}" --no-store
 fi
 
-ARCHIVE="${ROOT}/remote-log-smoke-v0.1.1.atawl"
+ARCHIVE="${ROOT}/remote-log-smoke-v0.1.2.atawl"
 MANIFEST_JSON="${ROOT}/.runtime/${LOG_RUN_ID}/manifest.json"
 zstd -dc "${ARCHIVE}" | tar -xOf - remote-log-smoke/manifest.json > "${MANIFEST_JSON}"
 

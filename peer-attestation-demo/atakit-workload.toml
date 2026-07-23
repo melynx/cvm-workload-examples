@@ -16,7 +16,7 @@ unmeasured-data = ["/peer-config.json"]
 
 [workload]
 name = "peer-attestation-demo"
-version = "v0.0.4"
+version = "v0.0.5"
 base-image-mode = "whitelist"
 base-image = ["automata-linux:v0.2.7-debug"]
 image = { build = ".", containerfile = "Containerfile" }

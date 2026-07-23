@@ -11,7 +11,7 @@ unmeasured-data = [
 
 [workload]
 name = "selective-data-smoke"
-version = "v0.1.1"
+version = "v0.1.2"
 base-image-mode = "whitelist"
 base-image = ["automata-linux:v0.2.7-debug"]
 image = { build = ".", containerfile = "Containerfile" }
