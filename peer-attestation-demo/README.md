@@ -5,7 +5,9 @@ the CVM agent's session key, perform an authenticated key exchange, and
 communicate over an AES-256-GCM encrypted channel. A web dashboard visualizes
 the entire protocol flow in real time.
 
-Published version: `peer-attestation-demo:v0.0.4`.
+Published version: `peer-attestation-demo:v0.0.5`.
+
+This version runs only with `automata-linux:v0.2.7-debug`.
 
 ## Architecture
 
@@ -109,12 +111,12 @@ See the [repo README](../README.md) or
 ```bash
 cd cvm-workload-examples/peer-attestation-demo
 
-atakit workload pull peer-attestation-demo:v0.0.4 --verify
+atakit workload pull peer-attestation-demo:v0.0.5 --verify
 
 # Deploy alpha
 mkdir -p alpha beta
 echo '{"node_name": "alpha"}' > alpha/peer-config.json
-atakit cloud deploy peer-attestation-demo:v0.0.4 \
+atakit cloud deploy peer-attestation-demo:v0.0.5 \
   --target gcp-c3-standard-4 \
   --name peer-demo-alpha \
   --unmeasured-data-root alpha \
@@ -125,7 +127,7 @@ atakit cloud status peer-demo-alpha --live
 
 # Deploy beta (with auto-connect to alpha)
 echo '{"node_name": "beta", "peer_addr": "<alpha-ip>:4000"}' > beta/peer-config.json
-atakit cloud deploy peer-attestation-demo:v0.0.4 \
+atakit cloud deploy peer-attestation-demo:v0.0.5 \
   --target gcp-c3-standard-4 \
   --name peer-demo-beta \
   --unmeasured-data-root beta \

@@ -5,8 +5,9 @@ is a dashboard service that declares two baby-container slots, accepts helper
 image uploads from a user, and calls the portal's workload-facing UDS from
 inside the parent service.
 
-Current local version: `baby-container-dynamic-update:v0.1.4-splicefix-e2e`.
-Published Hoodi quickstart version: `baby-container-dynamic-update:v0.1.3`.
+Published version: `baby-container-dynamic-update:v0.1.5`.
+
+This version runs only with `automata-linux:v0.2.7-debug`.
 
 ## Architecture
 
@@ -77,9 +78,9 @@ See the [repo README](../README.md) or
 [Hoodi deployment guide](../docs/hoodi-deployment.md) for one-time setup.
 
 ```bash
-atakit workload pull baby-container-dynamic-update:v0.1.3 --verify
+atakit workload pull baby-container-dynamic-update:v0.1.5 --verify
 
-atakit cloud deploy baby-container-dynamic-update:v0.1.3 \
+atakit cloud deploy baby-container-dynamic-update:v0.1.5 \
   --target gcp-c3-standard-4 \
   --name baby-container-demo \
   --yes
@@ -100,7 +101,7 @@ atakit workload build -d .
 Then deploy as usual:
 
 ```bash
-atakit cloud deploy baby-container-dynamic-update:v0.1.4-splicefix-e2e \
+atakit cloud deploy baby-container-dynamic-update:v0.1.5 \
   --target gcp-c3-standard-4 \
   --name baby-container-demo \
   --yes

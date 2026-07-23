@@ -1,6 +1,10 @@
 # selective-data-smoke
 
-Small workload for manifest v4 selective measured and unmeasured data mounts.
+Small workload for manifest v5 selective measured and unmeasured data mounts.
+
+Published version: `selective-data-smoke:v0.1.2`.
+
+This version runs only with `automata-linux:v0.2.7-debug`.
 
 The workload service receives only:
 
@@ -19,7 +23,7 @@ The source package uses logical data paths rooted at:
 - `measured-data/`
 - `unmeasured-data/`
 
-Build with an atakit-ng checkout that emits manifest format 4:
+Build with an atakit checkout that emits manifest format 5:
 
 ```sh
 atakit workload build -d cvm-workload-examples/selective-data-smoke
