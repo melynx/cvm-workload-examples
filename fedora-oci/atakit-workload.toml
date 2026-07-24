@@ -38,7 +38,7 @@ format = 5
 # name: alphanumeric + hyphens, must not start with a hyphen.
 # version: must start with "v", followed by alphanumeric/.-_ chars.
 name = "fedora-oci"
-version = "v0.0.14"
+version = "v0.0.15"
 
 # ── on-chain parameters ──────────────────────────────────────────
 #
@@ -47,12 +47,12 @@ version = "v0.0.14"
 #   "whitelist" -- only allow base images in the base-image list.
 # On-chain AccessMode enum: ANY=0, BLACKLIST=1, WHITELIST=2.
 # (ANY is not exposed here; use "blacklist" with an empty list for the same effect.)
-base-image-mode = "blacklist"
+base-image-mode = "whitelist"
 
 # base-image: list of base image references (name:version) for the whitelist/blacklist.
 # Used by `cloud deploy` for local validation and by `workload publish` to derive
 # on-chain base image IDs. Override with `--base-image-id` on publish if needed.
-# base-image = ["automata-linux:v0.1.6", "automata-linux:v0.1.5"]
+base-image = ["automata-linux:v0.2.7-debug"]
 
 # session-ttl: session TTL in seconds. Determines how long a CVM session
 # remains valid after attestation. Default: 0 (contract default, 30 days).

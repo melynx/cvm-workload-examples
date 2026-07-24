@@ -3,7 +3,9 @@
 A minimal `iperf3` server workload for measuring CVM network throughput and
 debugging packet loss, jitter, and source-path issues.
 
-Published version: not yet published. Build it locally from this directory.
+Published version: `iperf-benchmark:v0.1.2`.
+
+This version runs only with `automata-linux:v0.2.7-debug`.
 
 ## What It Runs
 
@@ -22,13 +24,13 @@ atakit workload build -d cvm-workload-examples/iperf-benchmark
 This creates:
 
 ```text
-cvm-workload-examples/iperf-benchmark/iperf-benchmark-v0.1.1.atawl
+cvm-workload-examples/iperf-benchmark/iperf-benchmark-v0.1.2.atawl
 ```
 
 ## Deploy
 
 ```sh
-atakit cloud deploy iperf-benchmark:v0.1.1 \
+atakit cloud deploy iperf-benchmark:v0.1.2 \
   --target gcp-c3-standard-4 \
   --name iperf-benchmark-demo \
   --yes

@@ -1,17 +1,31 @@
 # Hoodi Deployment Guide
 
 This guide deploys the published workload examples with the published
-`automata-linux:v0.2.5-debug` base image on Hoodi.
+`automata-linux:v0.2.7-debug` base image on Hoodi.
 
 The current published base image is:
 
-- Base image: `automata-linux:v0.2.5-debug`
+- Base image: `automata-linux:v0.2.7-debug`
 - Hoodi base image ID:
-  `0x59292627de53113d63ae83b79044c6f51e4aaa75baabff0bd3b21fef5ec44e97`
+  `0x8aba20306db032f6660ff83890e6b9a357558bd80bacc0eb8bc282210bbf82eb`
 - Published workload repository: `melynx/cvm-workload-examples`
 
 The deployment flow below follows the GCP TDX `c3-standard-4` path previously
 validated on Hoodi.
+
+The live `automata-linux:v0.2.7-debug` variants are:
+
+| Platform | Variant |
+| --- | --- |
+| `gcp-tdx` | `c3-standard-4` |
+| `gcp-sev-snp` | `n2d-standard-4` |
+| `azure-tdx` | `Standard_DC2es_v6` |
+| `azure-sev-snp` | `Standard_DC2as_v5` |
+
+The eight releases other than `storage-ip-env-smoke:v0.1.2` whitelist only
+`automata-linux:v0.2.7-debug`. The existing
+`storage-ip-env-smoke:v0.1.2` release keeps an empty blacklist and permits
+`automata-linux:v0.2.7-debug`.
 
 ## Configure atakit
 
@@ -52,7 +66,7 @@ chain = "hoodi"
 registration = "required"
 owner_key = "owner"
 gas_wallet = "gas"
-image = "automata-linux:v0.2.5-debug"
+image = "automata-linux:v0.2.7-debug"
 
 [cloud.providers.gcp-tdx]
 platform = "gcp"
@@ -70,28 +84,33 @@ serial-port-enable = "true"
 ## Pull published artifacts
 
 ```sh
-atakit image pull automata-linux:v0.2.5-debug gcp
+atakit image pull automata-linux:v0.2.7-debug gcp
 
-atakit workload pull fedora-oci:v0.0.14 --verify
-atakit workload pull multi-container-example:v0.5.2 --verify
-atakit workload pull baby-container-dynamic-update:v0.1.3 --verify
-atakit workload pull peer-attestation-demo:v0.0.4 --verify
+atakit workload pull baby-container-dynamic-update:v0.1.5 --verify
+atakit workload pull fedora-oci:v0.0.15 --verify
+atakit workload pull iperf-benchmark:v0.1.2 --verify
+atakit workload pull multi-container-example:v0.5.3 --verify
+atakit workload pull peer-attestation-demo:v0.0.5 --verify
+atakit workload pull portal-pr-regression-smoke:v0.1.2 --verify
+atakit workload pull remote-log-smoke:v0.1.2 --verify
+atakit workload pull selective-data-smoke:v0.1.2 --verify
+atakit workload pull storage-ip-env-smoke:v0.1.2 --verify
 ```
 
 ## Deploy standalone examples
 
 ```sh
-atakit cloud deploy fedora-oci:v0.0.14 \
+atakit cloud deploy fedora-oci:v0.0.15 \
   --target gcp-c3-standard-4 \
   --name fedora-oci-demo \
   --yes
 
-atakit cloud deploy multi-container-example:v0.5.2 \
+atakit cloud deploy multi-container-example:v0.5.3 \
   --target gcp-c3-standard-4 \
   --name multi-container-demo \
   --yes
 
-atakit cloud deploy baby-container-dynamic-update:v0.1.3 \
+atakit cloud deploy baby-container-dynamic-update:v0.1.5 \
   --target gcp-c3-standard-4 \
   --name baby-container-demo \
   --yes
@@ -115,7 +134,7 @@ cat > peer-alpha/peer-config.json <<EOF
 {"node_name":"alpha"}
 EOF
 
-atakit cloud deploy peer-attestation-demo:v0.0.4 \
+atakit cloud deploy peer-attestation-demo:v0.0.5 \
   --target gcp-c3-standard-4 \
   --name peer-demo-alpha \
   --unmeasured-data-root peer-alpha \
@@ -131,7 +150,7 @@ cat > peer-beta/peer-config.json <<EOF
 {"node_name":"beta","peer_addr":"<alpha-ip>:4000"}
 EOF
 
-atakit cloud deploy peer-attestation-demo:v0.0.4 \
+atakit cloud deploy peer-attestation-demo:v0.0.5 \
   --target gcp-c3-standard-4 \
   --name peer-demo-beta \
   --unmeasured-data-root peer-beta \
@@ -157,4 +176,4 @@ atakit cloud ls
 
 The destroy commands remove the deployments, firewalls, and workload disks.
 They do not remove the reusable imported cloud image
-`automata-linux-v0-2-5-debug`.
+`automata-linux-v0-2-7-debug`.

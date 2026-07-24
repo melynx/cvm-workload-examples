@@ -3,6 +3,10 @@
 Workload for the atakit-portal PR regression path around writable storage chmod
 fallback and baby-container `SYS_CHROOT`.
 
+Published version: `portal-pr-regression-smoke:v0.1.2`.
+
+This version runs only with `automata-linux:v0.2.7-debug`.
+
 It validates:
 
 - writable service storage mounted from the data disk root (`base-path = "/"`);
