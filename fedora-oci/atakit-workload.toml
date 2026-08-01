@@ -5,8 +5,8 @@
 # `atakit workload build` compiles it into a deterministic .atawl archive
 # containing manifest.json + images + measured-data.
 
-# Schema version. Current: 4.
-format = 5
+# Schema version. Current: 6.
+format = 6
 
 # ── package data ────────────────────────────────────────────────
 #
@@ -38,7 +38,7 @@ format = 5
 # name: alphanumeric + hyphens, must not start with a hyphen.
 # version: must start with "v", followed by alphanumeric/.-_ chars.
 name = "fedora-oci"
-version = "v0.0.15"
+version = "v0.0.16"
 
 # ── on-chain parameters ──────────────────────────────────────────
 #
@@ -52,7 +52,7 @@ base-image-mode = "whitelist"
 # base-image: list of base image references (name:version) for the whitelist/blacklist.
 # Used by `cloud deploy` for local validation and by `workload publish` to derive
 # on-chain base image IDs. Override with `--base-image-id` on publish if needed.
-base-image = ["automata-linux:v0.2.7-debug"]
+base-image = ["automata-linux:v0.2.8-session-possession-e2e-20260728"]
 
 # session-ttl: session TTL in seconds. Determines how long a CVM session
 # remains valid after attestation. Default: 0 (contract default, 30 days).
@@ -130,6 +130,10 @@ RUST_LOG = "info"
 #
 # Resolution order when a key appears in both: env_file values are loaded
 # first, then [workload.environment] overrides them.
+
+[workload.attributes]
+"atakit.attestation.v1.tee.intel-tdx.debug.enabled" = [false]
+"atakit.attestation.v1.tee.intel-tdx.tcb.status.allowed" = ["ok"]
 
 # ── data mount booleans ──────────────────────────────────────────
 #
