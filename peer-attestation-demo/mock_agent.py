@@ -9,8 +9,8 @@ the real portal would (keccak256(DOMAIN || message), DOMAIN =
 "ATAKIT_SESSION_SIGN_V1").
 
 Usage:
-    python mock_agent.py /tmp/agent-alpha.sock
-    python mock_agent.py /tmp/agent-beta.sock
+    python mock_agent.py /tmp/agent-alpha.sock /tmp/session-alpha.json
+    python mock_agent.py /tmp/agent-beta.sock /tmp/session-beta.json
 
 Then point the workload at the socket:
     AGENT_SOCKET=/tmp/agent-alpha.sock NODE_NAME=alpha DASHBOARD_PORT=3000 PEER_PORT=4000 python node.py
@@ -199,7 +199,23 @@ class Handler(BaseHTTPRequestHandler):
 # Unix socket server
 # ---------------------------------------------------------------------------
 
-def serve(socket_path):
+def _write_public_session(path):
+    if not path:
+        return
+    document = {
+        "session_id": _hex0x(_SESSION_ID),
+        "session_key_fingerprint": _hex0x(_SESSION_KEY_FINGERPRINT),
+        "session_public_key": {
+            "type_id": 3,
+            "key": _hex0x(_session_pub_bytes),
+        },
+    }
+    with open(path, "w", encoding="utf-8") as output:
+        json.dump(document, output, separators=(",", ":"))
+        output.write("\n")
+
+
+def serve(socket_path, session_output_path=None):
     if os.path.exists(socket_path):
         os.unlink(socket_path)
 
@@ -211,6 +227,9 @@ def serve(socket_path):
     print(f"[mock-portal] listening on {socket_path}")
     print(f"[mock-portal] session_id:  {_hex0x(_SESSION_ID)[:18]}...")
     print(f"[mock-portal] fingerprint: {_hex0x(_SESSION_KEY_FINGERPRINT)[:18]}...")
+    _write_public_session(session_output_path)
+    if session_output_path:
+        print(f"[mock-portal] wrote public session to {session_output_path}")
 
     try:
         while True:
@@ -231,7 +250,9 @@ def serve(socket_path):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <socket-path>")
-        print(f"Example: {sys.argv[0]} /tmp/agent-alpha.sock")
+        print(f"Usage: {sys.argv[0]} <socket-path> [public-session-output-path]")
+        print(
+            f"Example: {sys.argv[0]} /tmp/agent-alpha.sock /tmp/session-alpha.json"
+        )
         sys.exit(1)
-    serve(sys.argv[1])
+    serve(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None)

@@ -1,24 +1,23 @@
-# Peer attestation demo: two CVM instances verify each other, exchange keys,
-# and communicate over an encrypted channel.
+# Peer attestation demo: two CVM instances use atakit-verifierd to verify each
+# other's current session, then exchange keys for an encrypted-message demo.
 #
 # Deploy the same archive to two CVMs. Per-instance config (node name, peer
 # address) comes from unmeasured-data/peer-config.json, provided by the
 # operator at deploy time.
 #
-# Demonstrates: CVM agent /sign-message, secp256k1 signature verification,
-# ephemeral ECDH key exchange, AES-256-GCM encrypted messaging, unmeasured
-# data for per-instance configuration.
+# The encrypted-message framing is not a secure channel protocol. It does not
+# authenticate its frame header and it does not reject replayed frames.
 
-format = 5
+format = 6
 
 [package]
 unmeasured-data = ["/peer-config.json"]
 
 [workload]
 name = "peer-attestation-demo"
-version = "v0.0.5"
+version = "v0.0.6"
 base-image-mode = "whitelist"
-base-image = ["automata-linux:v0.2.7-debug"]
+base-image = ["0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/automata-linux:v0.2.7-debug"]
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000", "4000:4000"]
 restart = "unless-stopped"
@@ -29,12 +28,28 @@ workload-logs = true
 [workload.environment]
 DASHBOARD_PORT = "3000"
 PEER_PORT = "4000"
-ONCHAIN_RPC_URL = "https://ethereum-hoodi-rpc.publicnode.com"
-SESSION_REGISTRY = "0xB247950fBBFCE245641e433AFd7d8884328CE5A1"
-BASE_IMAGE_REGISTRY = "0xCbe56f9B73c822679Cf36DcF8D99434E0f1588Ca"
+VERIFIERD_URL = "http://atakit-verifierd:9100"
+EXPECTED_BASE_IMAGE_REF = "0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/automata-linux:v0.2.7-debug"
+EXPECTED_WORKLOAD_REF = "0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/peer-attestation-demo:v0.0.6"
 
 [workload.logging]
 log-readers = ["peer-attestation-demo"]
+
+[dependencies.atakit-verifierd]
+image = { file = "./images/atakit-verifierd.tar" }
+restart = "unless-stopped"
+
+[dependencies.atakit-verifierd.environment]
+VERIFIED_LISTEN = "0.0.0.0:9100"
+VERIFIED_TRUST_MODE = "chain"
+VERIFIED_RPC_URL = "https://ethereum-hoodi-rpc.publicnode.com"
+VERIFIED_CHAIN_ID = "560048"
+VERIFIED_SESSION_REGISTRY = "0xB247950fBBFCE245641e433AFd7d8884328CE5A1"
+
+# Replace these two documentation addresses with stable portal addresses before
+# building. Both names and addresses become measured workload inputs.
+VERIFIED_PEER_ALPHA = "peer-alpha.example:2024"
+VERIFIED_PEER_BETA = "peer-beta.example:2024"
 
 [firewall]
 allow = ["3000/tcp", "4000/tcp"]

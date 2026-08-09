@@ -1,3 +1,4 @@
 *.atawl
 **/.runtime/
 **/dist/
+/peer-attestation-demo/images/atakit-verifierd.tar

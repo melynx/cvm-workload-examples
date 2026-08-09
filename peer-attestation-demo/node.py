@@ -4,9 +4,11 @@ Each CVM instance runs two listeners:
 - a dashboard HTTP server for the web UI and local control API
 - a peer TCP server for attestation and encrypted messaging
 
-Two instances connect over the peer TCP socket, verify each other's CVM
-session via the agent's session key, perform ECDH to derive a shared AES key,
-and then keep using that same socket for bidirectional encrypted messages.
+Two instances connect over the peer TCP socket, ask atakit-verifierd to verify
+each other's current CVM session, verify the signed ephemeral key with the
+verified session public key, and derive a shared AES key for demonstration.
+
+The encrypted-message framing is not a secure channel protocol. See README.md.
 """
 
 import json
@@ -25,17 +27,9 @@ import protocol
 DASHBOARD_PORT = int(os.environ.get("DASHBOARD_PORT", "3000"))
 PEER_PORT = int(os.environ.get("PEER_PORT", "4000"))
 
-# On-chain verification defaults. Operator-overridable from the dashboard
-# (or via env at deploy time). Defaults target the demo's Hoodi deployment.
-ONCHAIN_RPC_URL = os.environ.get(
-    "ONCHAIN_RPC_URL", "https://ethereum-hoodi-rpc.publicnode.com"
-)
-SESSION_REGISTRY_ADDR = os.environ.get(
-    "SESSION_REGISTRY", "0xB247950fBBFCE245641e433AFd7d8884328CE5A1"
-)
-BASE_IMAGE_REGISTRY_ADDR = os.environ.get(
-    "BASE_IMAGE_REGISTRY", "0xCbe56f9B73c822679Cf36DcF8D99434E0f1588Ca"
-)
+VERIFIERD_URL = os.environ.get("VERIFIERD_URL", "http://atakit-verifierd:9100")
+EXPECTED_BASE_IMAGE_REF = os.environ.get("EXPECTED_BASE_IMAGE_REF", "")
+EXPECTED_WORKLOAD_REF = os.environ.get("EXPECTED_WORKLOAD_REF", "")
 UNMEASURED_CONFIG = "/atakit-portal/unmeasured-data/peer-config.json"
 MAX_MESSAGES = 200
 MAX_EVENTS = 100
@@ -60,6 +54,7 @@ class NodeState:
         self.dashboard_port = DASHBOARD_PORT
         self.peer_port = PEER_PORT
         self.peer_addr = None
+        self.verifier_peer = None
         self.connection_state = protocol.DISCONNECTED
         self.local_session_info = None
         self.peer_session_info = None
@@ -74,11 +69,6 @@ class NodeState:
         self.message_counter = 0
         self.last_error = None
         self.peer_socket_addr = None
-        # On-chain verification config + last result
-        self.onchain_rpc_url = ONCHAIN_RPC_URL
-        self.onchain_session_registry = SESSION_REGISTRY_ADDR
-        self.onchain_base_image_registry = BASE_IMAGE_REGISTRY_ADDR
-        self.onchain_result = None
         # Internal: not serialized
         self._connect_token = 0
         self._peer_token = 0
@@ -166,6 +156,7 @@ def _state_snapshot():
             "dashboard_port": STATE.dashboard_port,
             "peer_port": STATE.peer_port,
             "peer_addr": STATE.peer_addr,
+            "verifier_peer": STATE.verifier_peer,
             "connection_state": STATE.connection_state,
             "local_session_info": STATE.local_session_info,
             "peer_session_info": STATE.peer_session_info,
@@ -178,12 +169,6 @@ def _state_snapshot():
             "events": list(STATE.events),
             "last_error": STATE.last_error,
             "peer_socket_addr": STATE.peer_socket_addr,
-            "onchain_config": {
-                "rpc_url": STATE.onchain_rpc_url,
-                "session_registry": STATE.onchain_session_registry,
-                "base_image_registry": STATE.onchain_base_image_registry,
-            },
-            "onchain_result": STATE.onchain_result,
         }
 
 
@@ -300,29 +285,41 @@ def _prepare_local_handshake():
     return eph_private, eph_pub_hex, sign_resp, local_info
 
 
-def _verify_peer_handshake(peer_data, local_info):
+def _verify_peer_handshake(peer_data):
     peer_eph_hex = peer_data["ephemeral_public_key"]
     peer_sig = peer_data["signature"]
     peer_info = peer_data["session_info"]
     hash_fn = peer_info.get("hash_fn", "keccak256")
 
     with _lock:
-        STATE.peer_session_info = peer_info
-        STATE.peer_eph_pub_hex = peer_eph_hex
+        verifier_peer = STATE.verifier_peer
+
+    verification = protocol.verify_peer_session(
+        verifier_peer,
+        EXPECTED_BASE_IMAGE_REF,
+        EXPECTED_WORKLOAD_REF,
+        VERIFIERD_URL,
+    )
+    if verification["session_id"].lower() != peer_info.get("session_id", "").lower():
+        raise ValueError(
+            "peer handshake session_id does not match the session verified by atakit-verifierd"
+        )
+
+    verified_session_key = dict(verification["session_public_key"])
+    verified_session_key["fingerprint"] = verification["session_key_fingerprint"]
 
     sig_ok = protocol.verify_signature(
-        peer_info["session_pubkey"], peer_eph_hex, peer_sig, hash_fn=hash_fn
+        verified_session_key, peer_eph_hex, peer_sig, hash_fn=hash_fn
     )
     if not sig_ok:
-        raise ValueError("peer signature verification failed")
+        raise ValueError("peer signature does not match the session key verified by atakit-verifierd")
 
-    verification = protocol.verify_peer_session(peer_info, local_info)
+    peer_info = dict(peer_info)
+    peer_info["session_pubkey"] = verified_session_key
     with _lock:
+        STATE.peer_session_info = peer_info
+        STATE.peer_eph_pub_hex = peer_eph_hex
         STATE.verification_result = verification
-
-    if not verification["verified"]:
-        failed = [c["name"] for c in verification["checks"] if not c["passed"]]
-        raise ValueError(f"session verification failed: {', '.join(failed)}")
 
     return peer_eph_hex, peer_info, verification
 
@@ -378,7 +375,7 @@ def _activate_peer_connection(
 
     _add_event(
         "lock",
-        f"secure channel established (fingerprint: {STATE.shared_secret_fingerprint})",
+        "encrypted demo connection established; the message framing is not a secure channel",
     )
 
     reader_thread = threading.Thread(
@@ -398,41 +395,6 @@ def _activate_peer_connection(
     with _lock:
         STATE._reader_thread = reader_thread
         STATE._message_thread = message_thread
-
-    # The workload verifies the connected peer on-chain: confirm its session is
-    # registered, active, and bound to the same workload + base image as ours.
-    threading.Thread(target=_run_onchain_verification, daemon=True).start()
-
-
-def _run_onchain_verification():
-    """Query the chain for the local + peer sessions and store the result.
-
-    Uses the operator-configured RPC URL + registry addresses (dashboard).
-    Runs automatically on connect and on demand via POST /api/verify-onchain.
-    """
-    with _lock:
-        rpc = STATE.onchain_rpc_url
-        sr = STATE.onchain_session_registry
-        bir = STATE.onchain_base_image_registry
-        local_sid = (STATE.local_session_info or {}).get("session_id")
-        peer_sid = (STATE.peer_session_info or {}).get("session_id")
-
-    _add_event("verify", "checking peer on-chain via SessionRegistry.getSession")
-    result = protocol.verify_peer_onchain(rpc, sr, bir, local_sid, peer_sid)
-    with _lock:
-        STATE.onchain_result = result
-
-    if result.get("error"):
-        _add_event("error", f"on-chain verification error: {result['error']}")
-    elif result.get("verified"):
-        _add_event(
-            "check",
-            "peer verified on-chain (registered, active, same workload + base image)",
-        )
-    else:
-        failed = [c["name"] for c in result["checks"] if not c["passed"]]
-        _add_event("error", f"on-chain peer check failed: {', '.join(failed) or 'no peer'}")
-
 
 def _transition_connection(conn_token, new_state, detail, event_kind):
     with _lock:
@@ -494,9 +456,9 @@ def _do_handshake(peer_addr, connect_token):
                 return
             STATE.connection_state = protocol.VERIFYING
 
-        _add_event("verify", "verifying peer signature")
-        peer_eph_hex, peer_info, verification = _verify_peer_handshake(frame, local_info)
-        _add_event("check", "peer signature verified (workload/base-image binding deferred to chain)")
+        _add_event("verify", "verifying the peer session with atakit-verifierd")
+        peer_eph_hex, peer_info, verification = _verify_peer_handshake(frame)
+        _add_event("check", "peer session and signed ephemeral key verified")
 
         with _lock:
             if connect_token != STATE._connect_token:
@@ -609,9 +571,9 @@ def _handle_incoming_peer(sock, client_addr):
 
         eph_private, eph_pub_hex, sign_resp, local_info = _prepare_local_handshake()
 
-        _add_event("verify", "incoming: verifying peer signature")
-        peer_eph_hex, peer_info, verification = _verify_peer_handshake(frame, local_info)
-        _add_event("check", "incoming: peer signature verified (workload/base-image binding deferred to chain)")
+        _add_event("verify", "incoming: verifying the peer session with atakit-verifierd")
+        peer_eph_hex, peer_info, verification = _verify_peer_handshake(frame)
+        _add_event("check", "incoming: peer session and signed ephemeral key verified")
 
         _add_event("key", "incoming: computing ECDH shared secret")
         aes_key = _derive_session_key(eph_private, local_info, peer_info, peer_eph_hex)
@@ -850,6 +812,11 @@ input[type=text] { background: #0d1117; border: 1px solid #30363d; color: #c9d1d
 </div>
 <div class="sub" id="node-info">loading...</div>
 
+<div class="error-bar" style="display:block">
+  Security warning: this example verifies peer sessions, but its encrypted-message
+  framing does not authenticate the frame header or reject replayed frames.
+</div>
+
 <div id="error-bar" style="display:none" class="error-bar"></div>
 
 <div class="card">
@@ -901,31 +868,6 @@ input[type=text] { background: #0d1117; border: 1px solid #30363d; color: #c9d1d
   </div>
 </div>
 
-<h2>On-Chain Verification</h2>
-<div class="card">
-  <div class="sub" style="margin-bottom:10px;">
-    The workload checks the chain itself: <span class="mono">SessionRegistry.getSession</span> +
-    <span class="mono">isSessionActive</span> confirm the connected peer is registered, active, and
-    bound to the same workload + base image, and <span class="mono">BaseImageRegistry.getPlatformProfile</span>
-    resolves the platform/cloud. Runs automatically on connect; re-run after editing below.
-  </div>
-  <div style="margin:6px 0;"><div class="conn-label">RPC URL</div>
-    <input type="text" id="oc-rpc" style="width:100%;max-width:560px;" /></div>
-  <div style="margin:6px 0;"><div class="conn-label">SessionRegistry Address</div>
-    <input type="text" id="oc-sr" style="width:100%;max-width:560px;" /></div>
-  <div style="margin:6px 0;"><div class="conn-label">BaseImageRegistry Address</div>
-    <input type="text" id="oc-bir" style="width:100%;max-width:560px;" /></div>
-  <div style="margin-top:10px;">
-    <button class="btn" id="btn-verify-oc" onclick="doVerifyOnChain()">Verify On-Chain</button>
-    <span id="oc-overall" class="badge disconnected" style="margin-left:10px;">not run</span>
-  </div>
-  <div id="oc-checks" style="margin-top:10px;"></div>
-  <div class="cols2" style="margin-top:8px;">
-    <div><div class="col-title">Local Session (on-chain)</div><div id="oc-local" class="empty">--</div></div>
-    <div><div class="col-title">Remote Session (on-chain)</div><div id="oc-remote" class="empty">--</div></div>
-  </div>
-</div>
-
 <h2>Messages</h2>
 <div class="card">
   <div class="msgs" id="messages"></div>
@@ -954,30 +896,6 @@ function renderSessionInfo(info){
     <div class="kv"><span class="k">session</span><span class="v mono">${trunc(info.session_id,18)}</span></div>
     <div class="kv"><span class="k">pubkey</span><span class="v mono">${trunc(pk.key,18)}</span></div>
     <div class="kv"><span class="k">fingerprint</span><span class="v mono">${trunc(pk.fingerprint,18)}</span></div>`;
-}
-
-function fmtTs(t){
-  if(!t) return '--';
-  try{ return new Date(t*1000).toISOString().replace('T',' ').slice(0,19)+' UTC'; }
-  catch(e){ return String(t); }
-}
-
-function renderOnChainSession(v){
-  if(!v) return '<div class="empty">--</div>';
-  if(!v.registered) return `
-    <div class="kv"><span class="k">session</span><span class="v mono">${trunc(v.session_id,18)}</span></div>
-    <div class="kv"><span class="k">registered</span><span class="v check-fail">no (not on-chain)</span></div>`;
-  const plat = v.platform_profile_name ? esc(v.platform_profile_name) : trunc(v.platform_profile_id,14);
-  return `
-    <div class="kv"><span class="k">session</span><span class="v mono">${trunc(v.session_id,18)}</span></div>
-    <div class="kv"><span class="k">active</span><span class="v ${v.active?'check-ok':'check-fail'}">${v.active?'yes':'no'}</span></div>
-    <div class="kv"><span class="k">cloud / tee</span><span class="v">${esc(v.cloud||'?')} / ${esc(v.tee||'?')}</span></div>
-    <div class="kv"><span class="k">platform profile</span><span class="v mono">${plat}</span></div>
-    <div class="kv"><span class="k">variant</span><span class="v mono">${trunc(v.variant_id,14)}</span></div>
-    <div class="kv"><span class="k">workload</span><span class="v mono">${trunc(v.workload_id,14)}</span></div>
-    <div class="kv"><span class="k">base image</span><span class="v mono">${trunc(v.base_image_id,14)}</span></div>
-    <div class="kv"><span class="k">registered</span><span class="v">${fmtTs(v.registered_at)}</span></div>
-    <div class="kv"><span class="k">expires</span><span class="v">${fmtTs(v.expires_at)}</span></div>`;
 }
 
 function render(st){
@@ -1009,6 +927,10 @@ function render(st){
     <div class="conn-item">
       <div class="conn-label">Configured Peer</div>
       <div class="conn-value mono">${esc(st.peer_addr||'none')}</div>
+    </div>
+    <div class="conn-item">
+      <div class="conn-label">atakit-verifierd Peer Name</div>
+      <div class="conn-value mono">${esc(st.verifier_peer||'none')}</div>
     </div>
     <div class="conn-item">
       <div class="conn-label">Active Socket</div>
@@ -1046,46 +968,17 @@ function render(st){
   if(st.verification){
     let h='';
     for(const c of st.verification.checks){
-      let icon;
-      if(c.kind==='info') icon='<span class="check-info">ⓘ</span>';
-      else if(c.passed) icon='<span class="check-ok">✓</span>';
-      else icon='<span class="check-fail">✗</span>';
-      const value=c.value||(c.kind==='info'?'':(c.passed?'match':'MISMATCH'));
+      const icon=c.valid?'<span class="check-ok">✓</span>':'<span class="check-fail">✗</span>';
+      const value=c.detail||(c.valid?'verified':'FAILED');
       h+=`<div class="kv"><span class="k">${icon} ${esc(c.name)}</span>`+
         `<span class="v mono">${esc(value)}</span></div>`;
     }
-    if(st.verification.note){
-      h+=`<div class="kv" style="margin-top:6px;"><span class="k">note</span>`+
-        `<span class="v" style="max-width:70%;">${esc(st.verification.note)}</span></div>`;
-    }
+    h+=`<div class="kv" style="margin-top:6px;"><span class="k">binding mode</span>`+
+      `<span class="v mono">${esc(st.verification.binding_mode||'unknown')}</span></div>`;
+    h+=`<div class="kv"><span class="k">attestation mode</span>`+
+      `<span class="v mono">${esc(st.verification.attestation_mode||'unknown')}</span></div>`;
     ac.innerHTML=h;
   } else ac.innerHTML='';
-
-  // On-chain verification panel
-  const occ=st.onchain_config||{};
-  syncInputValue('oc-rpc', occ.rpc_url);
-  syncInputValue('oc-sr', occ.session_registry);
-  syncInputValue('oc-bir', occ.base_image_registry);
-  const ocr=st.onchain_result;
-  const ocOverall=document.getElementById('oc-overall');
-  const ocChecks=document.getElementById('oc-checks');
-  if(ocr){
-    document.getElementById('oc-local').innerHTML=renderOnChainSession(ocr.local);
-    document.getElementById('oc-remote').innerHTML=renderOnChainSession(ocr.peer);
-    if(ocr.error){
-      ocOverall.textContent='error'; ocOverall.className='badge error';
-      ocChecks.innerHTML=`<div class="kv"><span class="k check-fail">RPC error</span><span class="v">${esc(ocr.error)}</span></div>`;
-    } else {
-      ocOverall.textContent=ocr.verified?'peer verified':'not verified';
-      ocOverall.className='badge '+(ocr.verified?'connected':'error');
-      let oh='';
-      for(const c of (ocr.checks||[])){
-        const icon=c.passed?'<span class="check-ok">✓</span>':'<span class="check-fail">✗</span>';
-        oh+=`<div class="kv"><span class="k">${icon} ${esc(c.name)}</span><span class="v">${c.passed?'pass':'FAIL'}</span></div>`;
-      }
-      ocChecks.innerHTML=oh;
-    }
-  } else { ocOverall.textContent='not run'; ocOverall.className='badge disconnected'; ocChecks.innerHTML=''; }
 
   const ki=document.getElementById('kex-info');
   if(st.shared_secret_fingerprint){
@@ -1120,20 +1013,6 @@ async function refresh(){
     const st=await fetch('/api/state').then(r=>r.json());
     render(st);
   }catch(e){console.error(e);}
-}
-
-async function doVerifyOnChain(){
-  const body={
-    rpc_url:document.getElementById('oc-rpc').value.trim(),
-    session_registry:document.getElementById('oc-sr').value.trim(),
-    base_image_registry:document.getElementById('oc-bir').value.trim(),
-  };
-  const ov=document.getElementById('oc-overall');
-  ov.textContent='verifying...'; ov.className='badge verifying';
-  await fetch('/api/verify-onchain',{method:'POST',
-    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  ['oc-rpc','oc-sr','oc-bir'].forEach(function(id){document.getElementById(id).dataset.dirty='false';});
-  setTimeout(refresh,600);
 }
 
 async function doConnect(){
@@ -1171,10 +1050,6 @@ document.getElementById('peer-addr').addEventListener('keydown',function(e){
 document.getElementById('peer-addr').addEventListener('input',function(){
   this.dataset.dirty='true';
 });
-['oc-rpc','oc-sr','oc-bir'].forEach(function(id){
-  document.getElementById(id).addEventListener('input',function(){this.dataset.dirty='true';});
-});
-
 refresh();
 setInterval(refresh,1500);
 </script>
@@ -1199,27 +1074,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_disconnect()
         elif self.path == "/api/send":
             self._handle_send()
-        elif self.path == "/api/verify-onchain":
-            self._handle_verify_onchain()
         else:
             self.send_error(404)
 
     # -- Dashboard API -------------------------------------------------------
-
-    def _handle_verify_onchain(self):
-        body = self._read_json()
-        with _lock:
-            rpc = (body.get("rpc_url") or "").strip()
-            sr = (body.get("session_registry") or "").strip()
-            bir = (body.get("base_image_registry") or "").strip()
-            if rpc:
-                STATE.onchain_rpc_url = rpc
-            if sr:
-                STATE.onchain_session_registry = sr
-            if bir:
-                STATE.onchain_base_image_registry = bir
-        threading.Thread(target=_run_onchain_verification, daemon=True).start()
-        self._json(200, {"status": "verifying"})
 
     def _handle_connect(self):
         body = self._read_json()
@@ -1316,6 +1174,8 @@ def _load_config():
                     STATE.node_name = cfg["node_name"]
                 if cfg.get("peer_addr"):
                     STATE.peer_addr = _normalize_peer_addr(cfg["peer_addr"])
+                if cfg.get("verifier_peer"):
+                    STATE.verifier_peer = str(cfg["verifier_peer"]).strip().lower()
             print(f"[node] loaded unmeasured config: {cfg}")
         except Exception as e:
             print(f"[node] warning: failed to read {UNMEASURED_CONFIG}: {e}")
@@ -1324,11 +1184,14 @@ def _load_config():
 
     env_name = os.environ.get("NODE_NAME")
     env_peer = os.environ.get("PEER_ADDR")
+    env_verifier_peer = os.environ.get("VERIFIER_PEER")
     with _lock:
         if env_name:
             STATE.node_name = env_name
         if env_peer:
             STATE.peer_addr = _normalize_peer_addr(env_peer)
+        if env_verifier_peer:
+            STATE.verifier_peer = env_verifier_peer.strip().lower()
 
 
 def main():
@@ -1337,9 +1200,20 @@ def main():
     with _lock:
         name = STATE.node_name or "(unnamed)"
         auto_peer = STATE.peer_addr
+        verifier_peer = STATE.verifier_peer
+
+    if not verifier_peer:
+        raise RuntimeError(
+            "verifier_peer is required in peer-config.json or VERIFIER_PEER"
+        )
+    if not EXPECTED_BASE_IMAGE_REF:
+        raise RuntimeError("EXPECTED_BASE_IMAGE_REF is required")
+    if not EXPECTED_WORKLOAD_REF:
+        raise RuntimeError("EXPECTED_WORKLOAD_REF is required")
 
     print(f"[{name}] dashboard listening on :{DASHBOARD_PORT}")
     print(f"[{name}] peer listener on :{PEER_PORT}")
+    print(f"[{name}] atakit-verifierd peer name: {verifier_peer}")
 
     threading.Thread(target=_serve_peer_listener, daemon=True).start()
 

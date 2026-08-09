@@ -10,7 +10,7 @@ be built from source with `atakit workload build`.
 | [fedora-oci](fedora-oci/) | `v0.0.15` | Fedora shell-in box with SSH and debugging/networking tools |
 | [multi-container-example](multi-container-example/) | `v0.5.3` | Three containers sharing a persistent disk and container network |
 | [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.5` | Workload-owned baby-container image upload/update dashboard |
-| [peer-attestation-demo](peer-attestation-demo/) | `v0.0.5` | Two CVMs verify each other and communicate over an encrypted channel |
+| [peer-attestation-demo](peer-attestation-demo/) | `v0.0.6` source | Two CVMs verify current sessions through `atakit-verifierd`; its encrypted-message framing is not a secure channel |
 | [iperf-benchmark](iperf-benchmark/) | `v0.1.2` | Minimal iperf3 server for TCP/UDP throughput testing |
 | [remote-log-smoke](remote-log-smoke/) | `v0.1.2` | Remote log collection through a Fluent Bit sidecar |
 | [storage-ip-env-smoke](storage-ip-env-smoke/) | `v0.1.2` | Data-disk, non-empty IP, environment, and baby-container storage smoke test |

@@ -1,239 +1,146 @@
 # peer-attestation-demo
 
-Two CVM instances running the same workload verify each other's identity via
-the CVM agent's session key, perform an authenticated key exchange, and
-communicate over an AES-256-GCM encrypted channel. A web dashboard visualizes
-the entire protocol flow in real time.
+Two CVM instances use `atakit-verifierd` to verify each other's current atakit
+session. Each instance then verifies a signed ephemeral secp256k1 key with the
+session public key returned by `atakit-verifierd` and derives an AES key.
 
-Published version: `peer-attestation-demo:v0.0.5`.
+Current source version: `peer-attestation-demo:v0.0.6`. This source version is
+not published yet. The published `peer-attestation-demo:v0.0.5` archive uses
+the older hand-written registry check.
 
-This version runs only with `automata-linux:v0.2.7-debug`.
+## Security warning
 
-## Architecture
+This example does not implement a secure messaging channel. Its
+encrypted-message frames have three known defects:
 
-```
- +---------------------------+                  +---------------------------+
- |  CVM Instance (alpha)       |                |  CVM Instance (beta)        |
- |                             |  peer TCP      |                             |
- |  dashboard HTTP (:3000)     |  handshake +   |  dashboard HTTP (:3000)     |
- |  peer socket TCP (:4000)    |  encrypted <-> |  peer socket TCP (:4000)    |
- |    |                        |  messages      |    |                        |
- |    +-- CVM agent            |                |    +-- CVM agent            |
- |        /sign-message        |                |        /sign-message        |
- |        (secp256k1)          |                |        (secp256k1)          |
- +-----------------------------+                +-----------------------------+
-```
+- AES-GCM receives no associated data;
+- the frame sender and sequence number are not authenticated; and
+- the receiver does not reject replayed frames.
 
-Both instances run the exact same workload archive (same PCR23). Per-instance
-configuration (node name, peer address) is provided as unmeasured-data at
-deploy time.
+Use this example only to test peer session verification and session-key
+binding. Do not copy its encrypted-message protocol into an application.
 
-## Protocol
+## Verification flow
 
-1. **Handshake** -- each node generates an ephemeral secp256k1 keypair and
-   asks its CVM agent to sign the public key via `POST /sign-message`. The
-   signed ephemeral key and session info (sessionId, workloadId, baseImageId)
-   are exchanged.
+1. Each node generates an ephemeral secp256k1 key and asks its own portal to
+   sign the public key through `POST /sign-message`.
+2. Each node sends its claimed session identifier, signed ephemeral key, and
+   signature to its peer.
+3. The receiver calls `atakit-verifierd` `POST /v1/verify` with a measured peer
+   name and the expected publisher-qualified base-image and workload
+   references.
+4. The receiver requires the claimed session identifier to equal the verified
+   session identifier.
+5. The receiver verifies the ephemeral-key signature with the session public
+   key returned by `atakit-verifierd`. It does not trust the key claimed in the
+   peer frame.
+6. Both nodes derive an AES key through ephemeral ECDH and HKDF-SHA256 for the
+   encrypted-message demonstration.
 
-2. **Verification** -- each node verifies the peer's signature against the
-   peer's session public key, confirming the peer holds the corresponding
-   private key (which never leaves the TEE). WorkloadId and baseImageId are
-   checked to ensure both nodes run the same workload on a valid base image.
+`atakit-verifierd` performs the full portal TLS and current-session evidence
+verification. The selected `VERIFIED_TRUST_MODE` controls whether the trust
+authority is the chain, trust packs, or explicit operator inputs. This workload
+currently selects `chain` in `atakit-workload.toml`.
 
-3. **Key exchange** -- ECDH on the ephemeral keys produces a shared secret.
-   HKDF-SHA256 derives a 32-byte AES-256-GCM key. The salt binds the key to
-   both session IDs (sorted for determinism).
+## Build inputs
 
-4. **Encrypted messaging** -- heartbeat messages and dashboard messages are
-   sent over the same established peer TCP connection, encrypted with
-   AES-256-GCM (random 12-byte nonce per message).
+The `atakit-verifierd` dependency image is not committed to this repository.
+Package it from the matching `atakit-ng` checkout:
 
-## What this demonstrates
-
-- atakit portal integration (`atakit-portal = true`, Unix socket at
-  `/run/atakit-portal.sock`)
-- Session key signing (`POST /sign-message`, secp256k1/keccak256)
-- Cross-CVM identity verification (workload ID + base image match)
-- Signed Diffie-Hellman key exchange (ephemeral keys + session key authentication)
-- Forward secrecy (ephemeral keys discarded after ECDH)
-- AES-256-GCM authenticated encryption
-- Unmeasured data for per-instance configuration
-- Workload-side on-chain verification through plain JSON-RPC `eth_call`
-
-## Workload Config
-
-Important manifest settings in `atakit-workload.toml`:
-
-- Dashboard port: `3000/tcp`
-- Peer TCP port: `4000/tcp`
-- Portal socket enabled with `atakit-portal = true`
-- Unmeasured data: `peer-config.json`
-- Workload logs enabled
-- Hoodi RPC and registry addresses are provided through environment variables
-
-## Test locally
-
-Requires Python 3.12+ with `cryptography` and `pycryptodome`:
-
-```bash
-pip install cryptography pycryptodome
+```sh
+mkdir -p peer-attestation-demo/images
+cd <atakit-ng-checkout>
+./crates/atakit-verifierd/package-image.sh \
+  <cvm-workload-examples-checkout>/peer-attestation-demo/images/atakit-verifierd.tar
 ```
 
-Run a mock CVM agent and workload node in separate terminals:
+Before building the workload, replace these documentation values in
+`atakit-workload.toml` with stable portal addresses:
 
-```bash
-# Terminal 1 -- mock agent for alpha
-python mock_agent.py /tmp/agent-alpha.sock
-
-# Terminal 2 -- alpha node
-AGENT_SOCKET=/tmp/agent-alpha.sock NODE_NAME=alpha DASHBOARD_PORT=3000 PEER_PORT=4000 python node.py
-
-# Terminal 3 -- mock agent for beta
-python mock_agent.py /tmp/agent-beta.sock
-
-# Terminal 4 -- beta node
-AGENT_SOCKET=/tmp/agent-beta.sock NODE_NAME=beta DASHBOARD_PORT=3001 PEER_PORT=4001 python node.py
+```toml
+VERIFIED_PEER_ALPHA = "peer-alpha.example:2024"
+VERIFIED_PEER_BETA = "peer-beta.example:2024"
 ```
 
-Open http://localhost:3000, enter `localhost:4001` as the peer address, and
-click Connect. Both dashboards will show the attestation, key exchange, and
-encrypted message flow.
+Both peer names and both portal addresses are measured into PCR23. Allocate
+the addresses or stable DNS names before the build. The request sent by the
+main workload contains only `alpha` or `beta`; it cannot supply another host
+or port.
 
-Note: each mock agent generates its own secp256k1 session key but reports the
-same workload ID, so cross-verification passes. The mock agents report
-`isEmulation: true` in `/platform`.
+Build from the example directory:
 
-## Pull And Deploy To CVMs
-
-See the [repo README](../README.md) or
-[Hoodi deployment guide](../docs/hoodi-deployment.md) for one-time setup.
-
-```bash
-cd cvm-workload-examples/peer-attestation-demo
-
-atakit workload pull peer-attestation-demo:v0.0.5 --verify
-
-# Deploy alpha
-mkdir -p alpha beta
-echo '{"node_name": "alpha"}' > alpha/peer-config.json
-atakit cloud deploy peer-attestation-demo:v0.0.5 \
-  --target gcp-c3-standard-4 \
-  --name peer-demo-alpha \
-  --unmeasured-data-root alpha \
-  --yes
-
-# Get alpha's external IP
-atakit cloud status peer-demo-alpha --live
-
-# Deploy beta (with auto-connect to alpha)
-echo '{"node_name": "beta", "peer_addr": "<alpha-ip>:4000"}' > beta/peer-config.json
-atakit cloud deploy peer-attestation-demo:v0.0.5 \
-  --target gcp-c3-standard-4 \
-  --name peer-demo-beta \
-  --unmeasured-data-root beta \
-  --yes
-```
-
-If you are changing the example, build locally with:
-
-```bash
+```sh
 atakit workload build -d .
 ```
 
-For pre-publish testing, deploy with registration optional/off or publish a new
-version before using a target with `registration = "required"`.
+Publishing this new version and deploying it are separate actions. The
+workload reference in `EXPECTED_WORKLOAD_REF` must match the reference that is
+published and assigned to both sessions.
 
-## Dashboard
+## Per-instance configuration
 
-Open `http://<instance-ip>:3000/` in a browser. The peer channel listens on
-`<instance-ip>:4000`. The dashboard shows:
+Each instance receives one unmeasured `peer-config.json`. The address used by
+the demo TCP connection may vary at deployment time. `verifier_peer` must name
+one of the measured `VERIFIED_PEER_<NAME>` entries.
 
-- **Connection status** -- current state of the handshake protocol
-- **Protocol timeline** -- chronological events (signing, verification, key exchange)
-- **Attestation panel** -- local and remote session info with verification checks
-- **Key exchange panel** -- ephemeral keys, shared secret fingerprint
-- **Message feed** -- sent and received messages with encryption details
-- **Send panel** -- type custom messages to the peer
-
-If `peer_addr` is set in `peer-config.json`, the node auto-connects 5 seconds
-after startup. Otherwise, enter the peer's address in the dashboard and click
-Connect.
-
-## Configuration
-
-Per-instance config lives in `peer-config.json` (unmeasured-data, not part of
-the workload measurement):
+Alpha, which verifies beta:
 
 ```json
-{
-  "node_name": "alpha",
-  "peer_addr": "10.0.0.2:4000"
-}
+{"node_name":"alpha","peer_addr":"<beta-address>:4000","verifier_peer":"beta"}
 ```
 
-Both fields are optional. If `node_name` is omitted, the first 10 characters of
-the session ID are used. If `peer_addr` is omitted, connect manually via the
-dashboard. If the port is omitted, the node defaults to `PEER_PORT` (`4000`).
+Beta, which verifies alpha:
 
-## API
+```json
+{"node_name":"beta","peer_addr":"<alpha-address>:4000","verifier_peer":"alpha"}
+```
 
-### Dashboard
+The dashboard listens on port 3000. The demonstration peer socket listens on
+port 4000. The peer portal must be reachable on port 2024 at the measured
+address configured for `atakit-verifierd`.
+
+## Local integration test
+
+The local mock proves the HTTP and session-key binding path only. It does not
+verify TEE or TPM evidence.
+
+Install Python 3.12 or newer with `cryptography` and `pycryptodome`, then use
+five terminals from this directory:
+
+```sh
+# Terminal 1
+python mock_agent.py /tmp/agent-alpha.sock /tmp/session-alpha.json
+
+# Terminal 2
+python mock_agent.py /tmp/agent-beta.sock /tmp/session-beta.json
+
+# Terminal 3, after both session files exist
+python mock_verifierd.py 9100 \
+  alpha=/tmp/session-alpha.json beta=/tmp/session-beta.json
+
+# Terminal 4
+AGENT_SOCKET=/tmp/agent-alpha.sock NODE_NAME=alpha VERIFIER_PEER=beta \
+VERIFIERD_URL=http://127.0.0.1:9100 \
+EXPECTED_BASE_IMAGE_REF=0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/automata-linux:v1 \
+EXPECTED_WORKLOAD_REF=0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/peer-attestation-demo:v1 \
+DASHBOARD_PORT=3000 PEER_PORT=4000 python node.py
+
+# Terminal 5
+AGENT_SOCKET=/tmp/agent-beta.sock NODE_NAME=beta VERIFIER_PEER=alpha \
+VERIFIERD_URL=http://127.0.0.1:9100 \
+EXPECTED_BASE_IMAGE_REF=0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/automata-linux:v1 \
+EXPECTED_WORKLOAD_REF=0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/peer-attestation-demo:v1 \
+DASHBOARD_PORT=3001 PEER_PORT=4001 python node.py
+```
+
+Open `http://127.0.0.1:3000`, enter `127.0.0.1:4001`, and select Connect.
+
+## HTTP API
 
 | Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Web dashboard |
-| GET | `/api/state` | Full node state (JSON, polled by dashboard) |
-| POST | `/api/connect` | `{"peer_addr": "host[:port]"}` |
-| POST | `/api/send` | `{"text": "message"}` |
-| POST | `/api/disconnect` | Reset connection |
-
-### Peer-to-peer
-
-The peer channel is a persistent TCP socket on `PEER_PORT`. It uses newline-
-delimited JSON frames for:
-
-- handshake
-- handshake acknowledgement
-- encrypted message delivery
-- disconnect
-
-## On-chain verification
-
-The workload verifies its peer **on-chain itself** (no web3 dependency — plain
-JSON-RPC `eth_call` from `protocol.py`). On connect it queries, for both the
-local and the peer session:
-
-1. `SessionRegistry.getSession(sessionId)` — the registered session (workload
-   id, base image id, platform profile id, variant id, registered/expires).
-2. `SessionRegistry.isSessionActive(sessionId)` — the session is live.
-3. `BaseImageRegistry.getPlatformProfile(platformProfileId)` — resolves the
-   profile name (e.g. `gcp-tdx`) into human-readable cloud / TEE.
-
-The peer is accepted only if its session is **registered, active, and bound to
-the same workload + base image** as ours. The dashboard's "On-Chain
-Verification" card shows the pass/fail checks and full session info for both
-sides, and lets the operator set the **RPC URL** and **SessionRegistry /
-BaseImageRegistry addresses** (pre-filled with the deployment defaults; also
-overridable via `ONCHAIN_RPC_URL` / `SESSION_REGISTRY` / `BASE_IMAGE_REGISTRY`
-env). It re-runs on demand via the "Verify On-Chain" button.
-
-The peer-signature check (the peer holds the TEE-resident session key) still
-runs during the TCP handshake; the on-chain check adds the registry binding.
-The CVM needs outbound access to the RPC endpoint.
-
-## Security notes
-
-- **Session key isolation** -- the session private key never leaves the CVM
-  agent (runs inside the TEE). The workload only receives signatures.
-- **Forward secrecy** -- ephemeral ECDH keys are generated per connection and
-  discarded after deriving the shared secret. Compromising a session key does
-  not reveal past message content.
-- **Replay protection** -- AES-GCM nonces are random per message. The HKDF
-  salt binds the derived key to both session IDs, preventing key reuse across
-  different session pairs.
-
-## Cleanup
-
-```bash
-atakit cloud destroy peer-demo-alpha peer-demo-beta --yes
-```
+|---|---|---|
+| `GET` | `/` | Web dashboard |
+| `GET` | `/api/state` | Current node state |
+| `POST` | `/api/connect` | `{"peer_addr":"host:port"}` |
+| `POST` | `/api/send` | `{"text":"message"}` |
+| `POST` | `/api/disconnect` | Reset the demo connection |
