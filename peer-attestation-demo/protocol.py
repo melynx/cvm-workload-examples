@@ -278,19 +278,23 @@ class VerifierdError(RuntimeError):
 
 
 def verify_peer_session(
-    peer: str,
+    portal: dict,
     base_image: str,
     workload: str,
     verifierd_url: str,
     timeout: int = 90,
 ) -> dict:
-    """Ask atakit-verifierd to verify one configured peer session.
-
-    The caller supplies a peer name, never a host or port. atakit-verifierd
-    resolves that name through its measured VERIFIED_PEER_<NAME> allowlist.
-    """
-    if not peer:
-        raise VerifierdError("verifier peer name is required")
+    """Ask atakit-verifierd to verify one portal's current session."""
+    if not isinstance(portal, dict):
+        raise VerifierdError("peer portal must contain host and port")
+    portal_host = portal.get("host")
+    portal_port = portal.get("port")
+    if not isinstance(portal_host, str) or not portal_host.strip():
+        raise VerifierdError("peer portal host is required")
+    if not isinstance(portal_port, int) or isinstance(portal_port, bool):
+        raise VerifierdError("peer portal port must be an integer")
+    if not 1 <= portal_port <= 65535:
+        raise VerifierdError("peer portal port must be between 1 and 65535")
     if not base_image:
         raise VerifierdError("expected base-image reference is required")
     if not workload:
@@ -299,7 +303,11 @@ def verify_peer_session(
         raise VerifierdError("atakit-verifierd URL is required")
 
     payload = json.dumps(
-        {"peer": peer, "base_image": base_image, "workload": workload},
+        {
+            "portal": {"host": portal_host, "port": portal_port},
+            "base_image": base_image,
+            "workload": workload,
+        },
         separators=(",", ":"),
     ).encode()
     request = urllib.request.Request(
@@ -307,7 +315,7 @@ def verify_peer_session(
         payload,
         {
             "Content-Type": "application/json",
-            "User-Agent": "peer-attestation-demo/0.0.6",
+            "User-Agent": "peer-attestation-demo/0.0.7",
         },
     )
     try:

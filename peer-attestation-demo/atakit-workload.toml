@@ -15,7 +15,7 @@ unmeasured-data = ["/peer-config.json"]
 
 [workload]
 name = "peer-attestation-demo"
-version = "v0.0.6"
+version = "v0.0.7"
 base-image-mode = "whitelist"
 base-image = ["0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/automata-linux:v0.2.7-debug"]
 image = { build = ".", containerfile = "Containerfile" }
@@ -30,7 +30,7 @@ DASHBOARD_PORT = "3000"
 PEER_PORT = "4000"
 VERIFIERD_URL = "http://atakit-verifierd:9100"
 EXPECTED_BASE_IMAGE_REF = "0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/automata-linux:v0.2.7-debug"
-EXPECTED_WORKLOAD_REF = "0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/peer-attestation-demo:v0.0.6"
+EXPECTED_WORKLOAD_REF = "0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/peer-attestation-demo:v0.0.7"
 
 [workload.logging]
 log-readers = ["peer-attestation-demo"]
@@ -45,11 +45,6 @@ VERIFIED_TRUST_MODE = "chain"
 VERIFIED_RPC_URL = "https://ethereum-hoodi-rpc.publicnode.com"
 VERIFIED_CHAIN_ID = "560048"
 VERIFIED_SESSION_REGISTRY = "0xB247950fBBFCE245641e433AFd7d8884328CE5A1"
-
-# Replace these two documentation addresses with stable portal addresses before
-# building. Both names and addresses become measured workload inputs.
-VERIFIED_PEER_ALPHA = "peer-alpha.example:2024"
-VERIFIED_PEER_BETA = "peer-beta.example:2024"
 
 [firewall]
 allow = ["3000/tcp", "4000/tcp"]

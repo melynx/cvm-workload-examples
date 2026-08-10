@@ -4,7 +4,7 @@ Two CVM instances use `atakit-verifierd` to verify each other's current atakit
 session. Each instance then verifies a signed ephemeral secp256k1 key with the
 session public key returned by `atakit-verifierd` and derives an AES key.
 
-Current source version: `peer-attestation-demo:v0.0.6`. This source version is
+Current source version: `peer-attestation-demo:v0.0.7`. This source version is
 not published yet. The published `peer-attestation-demo:v0.0.5` archive uses
 the older hand-written registry check.
 
@@ -26,9 +26,9 @@ binding. Do not copy its encrypted-message protocol into an application.
    sign the public key through `POST /sign-message`.
 2. Each node sends its claimed session identifier, signed ephemeral key, and
    signature to its peer.
-3. The receiver calls `atakit-verifierd` `POST /v1/verify` with a measured peer
-   name and the expected publisher-qualified base-image and workload
-   references.
+3. The receiver calls `atakit-verifierd` `POST /v1/verify` with the peer portal
+   host and port from its per-instance configuration and the expected
+   publisher-qualified base-image and workload references.
 4. The receiver requires the claimed session identifier to equal the verified
    session identifier.
 5. The receiver verifies the ephemeral-key signature with the session public
@@ -54,19 +54,6 @@ cd <atakit-ng-checkout>
   <cvm-workload-examples-checkout>/peer-attestation-demo/images/atakit-verifierd.tar
 ```
 
-Before building the workload, replace these documentation values in
-`atakit-workload.toml` with stable portal addresses:
-
-```toml
-VERIFIED_PEER_ALPHA = "peer-alpha.example:2024"
-VERIFIED_PEER_BETA = "peer-beta.example:2024"
-```
-
-Both peer names and both portal addresses are measured into PCR23. Allocate
-the addresses or stable DNS names before the build. The request sent by the
-main workload contains only `alpha` or `beta`; it cannot supply another host
-or port.
-
 Build from the example directory:
 
 ```sh
@@ -79,25 +66,27 @@ published and assigned to both sessions.
 
 ## Per-instance configuration
 
-Each instance receives one unmeasured `peer-config.json`. The address used by
-the demo TCP connection may vary at deployment time. `verifier_peer` must name
-one of the measured `VERIFIED_PEER_<NAME>` entries.
+Each instance receives one unmeasured `peer-config.json`. The demo TCP address
+and the peer portal endpoint may both vary at deployment time. The portal
+endpoint is routing input. `atakit-verifierd` accepts it only after checking its
+destination policy, then establishes trust through portal TLS attestation and
+current-session verification.
 
 Alpha, which verifies beta:
 
 ```json
-{"node_name":"alpha","peer_addr":"<beta-address>:4000","verifier_peer":"beta"}
+{"node_name":"alpha","peer_addr":"<beta-address>:4000","peer_portal":{"host":"<beta-address>","port":2024}}
 ```
 
 Beta, which verifies alpha:
 
 ```json
-{"node_name":"beta","peer_addr":"<alpha-address>:4000","verifier_peer":"alpha"}
+{"node_name":"beta","peer_addr":"<alpha-address>:4000","peer_portal":{"host":"<alpha-address>","port":2024}}
 ```
 
 The dashboard listens on port 3000. The demonstration peer socket listens on
-port 4000. The peer portal must be reachable on port 2024 at the measured
-address configured for `atakit-verifierd`.
+port 4000. The peer portal must be reachable on port 2024 from the
+`atakit-verifierd` dependency container.
 
 ## Local integration test
 
@@ -116,17 +105,19 @@ python mock_agent.py /tmp/agent-beta.sock /tmp/session-beta.json
 
 # Terminal 3, after both session files exist
 python mock_verifierd.py 9100 \
-  alpha=/tmp/session-alpha.json beta=/tmp/session-beta.json
+  alpha:2024=/tmp/session-alpha.json beta:2024=/tmp/session-beta.json
 
 # Terminal 4
-AGENT_SOCKET=/tmp/agent-alpha.sock NODE_NAME=alpha VERIFIER_PEER=beta \
+AGENT_SOCKET=/tmp/agent-alpha.sock NODE_NAME=alpha \
+PEER_PORTAL_HOST=beta PEER_PORTAL_PORT=2024 \
 VERIFIERD_URL=http://127.0.0.1:9100 \
 EXPECTED_BASE_IMAGE_REF=0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/automata-linux:v1 \
 EXPECTED_WORKLOAD_REF=0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/peer-attestation-demo:v1 \
 DASHBOARD_PORT=3000 PEER_PORT=4000 python node.py
 
 # Terminal 5
-AGENT_SOCKET=/tmp/agent-beta.sock NODE_NAME=beta VERIFIER_PEER=alpha \
+AGENT_SOCKET=/tmp/agent-beta.sock NODE_NAME=beta \
+PEER_PORTAL_HOST=alpha PEER_PORTAL_PORT=2024 \
 VERIFIERD_URL=http://127.0.0.1:9100 \
 EXPECTED_BASE_IMAGE_REF=0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/automata-linux:v1 \
 EXPECTED_WORKLOAD_REF=0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/peer-attestation-demo:v1 \

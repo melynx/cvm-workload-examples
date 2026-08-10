@@ -27,7 +27,8 @@ class Handler(BaseHTTPRequestHandler):
                 200,
                 {
                     "trust_mode": "mock",
-                    "peers": sorted(SESSIONS),
+                    "portal_allowed_ports": [2024],
+                    "portal_allowed_cidrs": None,
                     "packs": [],
                     "supported_platforms": ["mock"],
                 },
@@ -45,10 +46,16 @@ class Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError as error:
             self._json(400, {"checks": [], "errors": [f"invalid JSON: {error}"]})
             return
-        peer = str(request.get("peer", "")).lower()
-        session_path = SESSIONS.get(peer)
+        portal = request.get("portal") or {}
+        portal_host = str(portal.get("host", "")).lower()
+        portal_port = portal.get("port")
+        portal_key = f"{portal_host}:{portal_port}"
+        session_path = SESSIONS.get(portal_key)
         if not session_path:
-            self._json(400, {"checks": [], "errors": [f"unknown peer {peer!r}"]})
+            self._json(
+                400,
+                {"checks": [], "errors": [f"unknown mock portal {portal_key!r}"]},
+            )
             return
         try:
             with open(session_path, encoding="utf-8") as source:
@@ -56,7 +63,10 @@ class Handler(BaseHTTPRequestHandler):
         except (OSError, json.JSONDecodeError) as error:
             self._json(
                 422,
-                {"checks": [], "errors": [f"read mock session for {peer}: {error}"]},
+                {
+                    "checks": [],
+                    "errors": [f"read mock session for {portal_key}: {error}"],
+                },
             )
             return
 
@@ -96,13 +106,16 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} <listen-port> <peer>=<session-file> [...]")
+        print(
+            f"Usage: {sys.argv[0]} <listen-port> "
+            "<portal-host>:<portal-port>=<session-file> [...]"
+        )
         sys.exit(1)
     for mapping in sys.argv[2:]:
-        peer, separator, path = mapping.partition("=")
-        if not separator or not peer or not path:
-            raise ValueError(f"invalid peer mapping: {mapping!r}")
-        SESSIONS[peer.lower()] = path
+        portal, separator, path = mapping.partition("=")
+        if not separator or not portal or not path:
+            raise ValueError(f"invalid portal mapping: {mapping!r}")
+        SESSIONS[portal.lower()] = path
     port = int(sys.argv[1])
     print(f"[mock-verifierd] listening on 127.0.0.1:{port} for {sorted(SESSIONS)}")
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()

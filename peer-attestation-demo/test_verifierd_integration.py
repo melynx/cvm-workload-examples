@@ -66,9 +66,9 @@ class VerifierdHttpTests(unittest.TestCase):
         self.server.server_close()
         self.thread.join()
 
-    def test_request_contains_only_peer_name_and_expected_references(self):
+    def test_request_contains_dynamic_portal_and_expected_references(self):
         result = protocol.verify_peer_session(
-            "beta",
+            {"host": "beta.example", "port": 2024},
             BASE_IMAGE,
             WORKLOAD,
             f"http://127.0.0.1:{self.server.server_port}",
@@ -76,7 +76,11 @@ class VerifierdHttpTests(unittest.TestCase):
         self.assertTrue(result["verified"])
         self.assertEqual(
             VerifierHandler.request_body,
-            {"peer": "beta", "base_image": BASE_IMAGE, "workload": WORKLOAD},
+            {
+                "portal": {"host": "beta.example", "port": 2024},
+                "base_image": BASE_IMAGE,
+                "workload": WORKLOAD,
+            },
         )
 
     def test_structured_failure_is_not_hidden(self):
@@ -90,7 +94,7 @@ class VerifierdHttpTests(unittest.TestCase):
             "peer quote did not match the measurement policy",
         ):
             protocol.verify_peer_session(
-                "beta",
+                {"host": "beta.example", "port": 2024},
                 BASE_IMAGE,
                 WORKLOAD,
                 f"http://127.0.0.1:{self.server.server_port}",
@@ -100,7 +104,7 @@ class VerifierdHttpTests(unittest.TestCase):
 class HandshakeBindingTests(unittest.TestCase):
     def setUp(self):
         node.STATE = node.NodeState()
-        node.STATE.verifier_peer = "beta"
+        node.STATE.peer_portal = {"host": "beta.example", "port": 2024}
 
     def test_signature_uses_verifierd_key_not_claimed_key(self):
         ephemeral = "0x04"

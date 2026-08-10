@@ -54,7 +54,7 @@ class NodeState:
         self.dashboard_port = DASHBOARD_PORT
         self.peer_port = PEER_PORT
         self.peer_addr = None
-        self.verifier_peer = None
+        self.peer_portal = None
         self.connection_state = protocol.DISCONNECTED
         self.local_session_info = None
         self.peer_session_info = None
@@ -156,7 +156,7 @@ def _state_snapshot():
             "dashboard_port": STATE.dashboard_port,
             "peer_port": STATE.peer_port,
             "peer_addr": STATE.peer_addr,
-            "verifier_peer": STATE.verifier_peer,
+            "peer_portal": STATE.peer_portal,
             "connection_state": STATE.connection_state,
             "local_session_info": STATE.local_session_info,
             "peer_session_info": STATE.peer_session_info,
@@ -186,6 +186,21 @@ def _normalize_peer_addr(value):
     if ":" not in value:
         return f"{value}:{PEER_PORT}"
     return value
+
+
+def _normalize_peer_portal(value):
+    if not isinstance(value, dict):
+        raise ValueError("peer_portal must contain host and port")
+    host = str(value.get("host") or "").strip()
+    if not host:
+        raise ValueError("peer_portal.host is required")
+    try:
+        port = int(value.get("port"))
+    except (TypeError, ValueError) as error:
+        raise ValueError("peer_portal.port must be an integer") from error
+    if not 1 <= port <= 65535:
+        raise ValueError("peer_portal.port must be between 1 and 65535")
+    return {"host": host, "port": port}
 
 
 def _split_peer_addr(peer_addr):
@@ -292,10 +307,10 @@ def _verify_peer_handshake(peer_data):
     hash_fn = peer_info.get("hash_fn", "keccak256")
 
     with _lock:
-        verifier_peer = STATE.verifier_peer
+        peer_portal = STATE.peer_portal
 
     verification = protocol.verify_peer_session(
-        verifier_peer,
+        peer_portal,
         EXPECTED_BASE_IMAGE_REF,
         EXPECTED_WORKLOAD_REF,
         VERIFIERD_URL,
@@ -929,8 +944,8 @@ function render(st){
       <div class="conn-value mono">${esc(st.peer_addr||'none')}</div>
     </div>
     <div class="conn-item">
-      <div class="conn-label">atakit-verifierd Peer Name</div>
-      <div class="conn-value mono">${esc(st.verifier_peer||'none')}</div>
+      <div class="conn-label">Peer Portal Verified by atakit-verifierd</div>
+      <div class="conn-value mono">${esc(st.peer_portal ? `${st.peer_portal.host}:${st.peer_portal.port}` : 'none')}</div>
     </div>
     <div class="conn-item">
       <div class="conn-label">Active Socket</div>
@@ -1174,8 +1189,8 @@ def _load_config():
                     STATE.node_name = cfg["node_name"]
                 if cfg.get("peer_addr"):
                     STATE.peer_addr = _normalize_peer_addr(cfg["peer_addr"])
-                if cfg.get("verifier_peer"):
-                    STATE.verifier_peer = str(cfg["verifier_peer"]).strip().lower()
+                if cfg.get("peer_portal"):
+                    STATE.peer_portal = _normalize_peer_portal(cfg["peer_portal"])
             print(f"[node] loaded unmeasured config: {cfg}")
         except Exception as e:
             print(f"[node] warning: failed to read {UNMEASURED_CONFIG}: {e}")
@@ -1184,14 +1199,20 @@ def _load_config():
 
     env_name = os.environ.get("NODE_NAME")
     env_peer = os.environ.get("PEER_ADDR")
-    env_verifier_peer = os.environ.get("VERIFIER_PEER")
+    env_peer_portal_host = os.environ.get("PEER_PORTAL_HOST")
+    env_peer_portal_port = os.environ.get("PEER_PORTAL_PORT")
     with _lock:
         if env_name:
             STATE.node_name = env_name
         if env_peer:
             STATE.peer_addr = _normalize_peer_addr(env_peer)
-        if env_verifier_peer:
-            STATE.verifier_peer = env_verifier_peer.strip().lower()
+        if env_peer_portal_host or env_peer_portal_port:
+            STATE.peer_portal = _normalize_peer_portal(
+                {
+                    "host": env_peer_portal_host,
+                    "port": env_peer_portal_port,
+                }
+            )
 
 
 def main():
@@ -1200,11 +1221,11 @@ def main():
     with _lock:
         name = STATE.node_name or "(unnamed)"
         auto_peer = STATE.peer_addr
-        verifier_peer = STATE.verifier_peer
+        peer_portal = STATE.peer_portal
 
-    if not verifier_peer:
+    if not peer_portal:
         raise RuntimeError(
-            "verifier_peer is required in peer-config.json or VERIFIER_PEER"
+            "peer_portal is required in peer-config.json or PEER_PORTAL_HOST and PEER_PORTAL_PORT"
         )
     if not EXPECTED_BASE_IMAGE_REF:
         raise RuntimeError("EXPECTED_BASE_IMAGE_REF is required")
@@ -1213,7 +1234,10 @@ def main():
 
     print(f"[{name}] dashboard listening on :{DASHBOARD_PORT}")
     print(f"[{name}] peer listener on :{PEER_PORT}")
-    print(f"[{name}] atakit-verifierd peer name: {verifier_peer}")
+    print(
+        f"[{name}] peer portal for atakit-verifierd: "
+        f"{peer_portal['host']}:{peer_portal['port']}"
+    )
 
     threading.Thread(target=_serve_peer_listener, daemon=True).start()
 
