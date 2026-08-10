@@ -52,7 +52,7 @@ base-image-mode = "whitelist"
 # base-image: list of base image references (name:version) for the whitelist/blacklist.
 # Used by `cloud deploy` for local validation and by `workload publish` to derive
 # on-chain base image IDs. Override with `--base-image-id` on publish if needed.
-base-image = ["automata-linux:v0.2.8-session-possession-e2e-20260728"]
+base-image = ["automata-linux:v0.2.8-debug"]
 
 # session-ttl: session TTL in seconds. Determines how long a CVM session
 # remains valid after attestation. Default: 0 (contract default, 30 days).
@@ -134,6 +134,10 @@ RUST_LOG = "info"
 [workload.attributes]
 "atakit.attestation.v1.tee.intel-tdx.debug.enabled" = [false]
 "atakit.attestation.v1.tee.intel-tdx.tcb.status.allowed" = ["ok"]
+"atakit.attestation.v1.tee.amd-sev-snp.debug.enabled" = [false]
+"atakit.attestation.v1.tee.amd-sev-snp.migrate-ma.enabled" = [false]
+"atakit.attestation.v1.tee.amd-sev-snp.tcb.minimum" = ["0x00000000de1d000400000000de1d000400000000de1d000400000000de1d0004"]
+"atakit.attestation.v1.tee.amd-sev-snp.platform-info.policy" = ["0x0000000000000000000000000000000000000000000000000000000000000020"]
 
 # ── data mount booleans ──────────────────────────────────────────
 #
