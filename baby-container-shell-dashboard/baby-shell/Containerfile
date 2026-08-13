@@ -1,0 +1,29 @@
+FROM registry.fedoraproject.org/fedora@sha256:63773f454664cd77e239f8e0b13ae7f18effe9e3d6612a325b5646eb3bda11f1
+
+RUN dnf5 -y install \
+        bash \
+        coreutils \
+        curl \
+        findutils \
+        iproute \
+        jq \
+        openssh-server \
+        procps-ng \
+        python3 \
+        shadow-utils \
+        sudo \
+        util-linux \
+    && dnf5 clean all \
+    && useradd --create-home --uid 1000 --shell /bin/bash tester \
+    && printf 'root:atakit-test\ntester:atakit-test\n' | chpasswd \
+    && chmod 0400 /etc/shadow /etc/gshadow \
+    && printf 'tester ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/tester \
+    && chmod 0440 /etc/sudoers.d/tester \
+    && ssh-keygen -A
+
+COPY sshd_config /etc/ssh/sshd_config
+COPY entrypoint.sh /usr/local/bin/baby-shell-entrypoint
+RUN chmod 0755 /usr/local/bin/baby-shell-entrypoint
+
+EXPOSE 2222
+ENTRYPOINT ["/usr/local/bin/baby-shell-entrypoint"]

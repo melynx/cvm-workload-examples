@@ -1,0 +1,75 @@
+# Test-only baby-container shell dashboard.
+#
+# The measured parent service exposes a dashboard on port 3000. The dashboard
+# uploads and controls one runtime baby container through the workload-facing
+# portal socket. The baby container shares the parent network namespace and
+# runs OpenSSH on port 2222.
+
+format = 5
+
+[workload]
+name = "baby-container-shell-dashboard"
+version = "v0.1.0"
+base-image-mode = "whitelist"
+base-image = ["automata-linux:v0.2.8-debug"]
+image = { build = ".", containerfile = "Containerfile" }
+ports = ["3000:3000/tcp", "2222:2222/tcp"]
+restart = "unless-stopped"
+atakit-portal = true
+gid-group = "shell-dashboard"
+ip-env = true
+
+[workload.storage.upload-spool]
+disk = "test-data"
+base-path = "/uploads"
+mount-path = "/var/lib/shell-dashboard/uploads"
+read-only = false
+
+[workload.environment]
+DASHBOARD_PORT = "3000"
+BABY_SLOT = "ssh-shell"
+BABY_INSTANCE_ID = "ssh-shell-1"
+BABY_SSH_HOST = "127.0.0.1"
+BABY_SSH_PORT = "2222"
+BABY_TEST_PASSWORD = "atakit-test"
+PORTAL_SOCKET = "/run/atakit-portal.sock"
+UPLOAD_SPOOL_DIR = "/var/lib/shell-dashboard/uploads"
+
+[baby-container]
+enabled = true
+max-instances = 1
+
+[baby-container.slots.ssh-shell]
+parent-service = "baby-container-shell-dashboard"
+gid-group = "shell-dashboard"
+image-selection = "single"
+max-instances = 1
+
+[baby-container.slots.ssh-shell.lifecycle]
+image-retention = "session"
+instance-retention = "ephemeral"
+restart = "manual"
+rootfs = "read-only"
+
+[baby-container.slots.ssh-shell.logging]
+driver = "k8s-file"
+
+[baby-container.slots.ssh-shell.logging.options]
+max-size = "5m"
+max-file = "2"
+
+[baby-container.slots.ssh-shell.storage.scratch]
+disk = "test-data"
+base-path = "/scratch"
+mount-path = "/tmp"
+retention = "session"
+scope = "instance"
+read-only = false
+
+[baby-container.slots.ssh-shell.storage.scratch.permissions]
+baby = "rw"
+parent = "none"
+
+[disks.test-data]
+size = "10GB"
+encryption = { unlock_method = [], bind = [] }
