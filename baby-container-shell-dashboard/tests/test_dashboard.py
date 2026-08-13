@@ -70,6 +70,23 @@ class DashboardTest(unittest.TestCase):
         )
         self.assertNotIn("__ATAKIT_PUBLIC_IP__", page)
 
+    def test_dashboard_reports_upload_and_start_progress(self):
+        page = DASHBOARD.render_index_html("203.0.113.10")
+        self.assertIn('id="operationProgress"', page)
+        self.assertIn("new XMLHttpRequest()", page)
+        self.assertIn("xhr.upload.onprogress", page)
+        self.assertIn("'Staging image'", page)
+        self.assertIn("'Starting baby container'", page)
+        self.assertIn("'Baby container running'", page)
+        self.assertIn("Elapsed: ${seconds}s", page)
+
+    def test_dashboard_disables_duplicate_upload_and_start_actions(self):
+        page = DASHBOARD.render_index_html("203.0.113.10")
+        self.assertIn("setPrimaryActionsBusy(true, 'upload')", page)
+        self.assertIn("setPrimaryActionsBusy(true, 'create')", page)
+        self.assertIn("$('uploadBtn').disabled = busy", page)
+        self.assertIn("$('createBtn').disabled = busy", page)
+
 
 if __name__ == "__main__":
     unittest.main()

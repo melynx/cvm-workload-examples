@@ -103,6 +103,13 @@ Then:
 5. Run custom commands as either `tester` or `root`.
 6. Use **Stop** and **Remove** to end the baby container.
 
+The upload panel shows the number of bytes sent and the upload percentage.
+After the dashboard receives the file, it shows an indeterminate progress bar
+while it stages the image through `atakit-portal`. Starting a baby container
+also shows an indeterminate progress bar and elapsed time until
+`POST /baby-container/create` returns the running instance. The upload and
+start buttons remain disabled while either operation is active.
+
 The fixed normal-user checks create a file in `/tmp`, run Python and jq, call
 the dashboard health endpoint, confirm that `/etc/shadow` is unreadable, and
 use `sudo -n id -u` to switch to root.

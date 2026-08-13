@@ -328,6 +328,12 @@ INDEX_HTML_TEMPLATE = r"""<!doctype html>
     button.secondary { color: #172033; background: white; border-color: #9aabc2; }
     button.danger { background: #a62d2d; border-color: #8c2222; }
     button:disabled { opacity: .5; cursor: wait; }
+    .operation-status { margin-top: 12px; padding: 11px; border: 1px solid #bdc8d9; border-radius: 7px; background: #f7f9fc; }
+    .operation-status.complete { border-color: #74c69d; background: #edfdf4; }
+    .operation-status.error { border-color: #e29a9a; background: #fff1f1; }
+    .operation-heading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
+    .operation-detail { margin-top: 6px; color: #506079; font-size: 13px; }
+    progress { display: block; width: 100%; height: 15px; accent-color: #2456a6; }
     .pill { border-radius: 999px; background: #d9fbe8; color: #17653a; padding: 5px 10px; font-size: 13px; white-space: nowrap; }
     .pill.error { background: #fde2e2; color: #8c1d1d; }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -355,6 +361,15 @@ INDEX_HTML_TEMPLATE = r"""<!doctype html>
       <button id="uploadBtn">Upload image</button>
       <button id="createBtn">Start baby container</button>
       <button id="refreshBtn" class="secondary">Refresh state</button>
+      <div id="operationStatus" class="operation-status" role="status" aria-live="polite" hidden>
+        <div class="operation-heading">
+          <strong id="operationTitle">Waiting</strong>
+          <span id="operationPercent"></span>
+        </div>
+        <progress id="operationProgress" max="100" aria-labelledby="operationTitle"></progress>
+        <div id="operationDetail" class="operation-detail"></div>
+        <div id="operationElapsed" class="operation-detail"></div>
+      </div>
       <p id="lastAction"></p>
     </div>
 
@@ -407,13 +422,97 @@ INDEX_HTML_TEMPLATE = r"""<!doctype html>
 </main>
 <script>
   const $ = id => document.getElementById(id);
+  let operationStartedAt = 0;
+  let operationTimer = null;
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
+  }
+  function updateElapsed() {
+    if (!operationStartedAt) return;
+    const seconds = Math.floor((Date.now() - operationStartedAt) / 1000);
+    $('operationElapsed').textContent = `Elapsed: ${seconds}s`;
+  }
+  function setPrimaryActionsBusy(busy, activeButton = null) {
+    $('uploadBtn').disabled = busy;
+    $('createBtn').disabled = busy;
+    $('imageFile').disabled = busy;
+    $('uploadBtn').textContent = activeButton === 'upload' ? 'Uploading…' : 'Upload image';
+    $('createBtn').textContent = activeButton === 'create' ? 'Starting…' : 'Start baby container';
+  }
+  function beginOperation(title, detail, percent = null) {
+    operationStartedAt = Date.now();
+    clearInterval(operationTimer);
+    operationTimer = setInterval(updateElapsed, 1000);
+    $('operationStatus').hidden = false;
+    $('operationStatus').className = 'operation-status';
+    updateOperation(title, detail, percent);
+    updateElapsed();
+  }
+  function updateOperation(title, detail, percent = null) {
+    $('operationTitle').textContent = title;
+    $('operationDetail').textContent = detail;
+    if (percent === null) {
+      $('operationProgress').removeAttribute('value');
+      $('operationPercent').textContent = '';
+    } else {
+      const bounded = Math.max(0, Math.min(100, percent));
+      $('operationProgress').value = bounded;
+      $('operationPercent').textContent = `${Math.round(bounded)}%`;
+    }
+  }
+  function finishOperation(ok, title, detail) {
+    clearInterval(operationTimer);
+    operationTimer = null;
+    updateElapsed();
+    operationStartedAt = 0;
+    $('operationStatus').className = `operation-status ${ok ? 'complete' : 'error'}`;
+    updateOperation(title, detail, ok ? 100 : 0);
+    if (!ok) $('operationPercent').textContent = '';
+  }
+  function parseApiResponse(status, text) {
+    let data;
+    try { data = text ? JSON.parse(text) : {}; } catch { data = {raw: text}; }
+    if (status < 200 || status >= 300) throw new Error(JSON.stringify(data));
+    return data;
+  }
   async function api(path, options = {}) {
     const response = await fetch(path, options);
     const text = await response.text();
-    let data;
-    try { data = text ? JSON.parse(text) : {}; } catch { data = {raw: text}; }
-    if (!response.ok) throw new Error(JSON.stringify(data));
-    return data;
+    return parseApiResponse(response.status, text);
+  }
+  function uploadImage(file, headers) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload');
+      for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
+      xhr.upload.onprogress = event => {
+        if (!event.lengthComputable) {
+          updateOperation('Uploading image', `${formatBytes(event.loaded)} sent`, null);
+          return;
+        }
+        const percent = event.total ? event.loaded * 100 / event.total : 0;
+        updateOperation(
+          'Uploading image',
+          `${formatBytes(event.loaded)} of ${formatBytes(event.total)} sent`,
+          percent,
+        );
+      };
+      xhr.upload.onload = () => updateOperation(
+        'Staging image',
+        'Upload received. Decompressing if needed and forwarding the image to atakit-portal.',
+        null,
+      );
+      xhr.onerror = () => reject(new Error('The image upload connection failed.'));
+      xhr.onabort = () => reject(new Error('The image upload was cancelled.'));
+      xhr.onload = () => {
+        try { resolve(parseApiResponse(xhr.status, xhr.responseText)); }
+        catch (error) { reject(error); }
+      };
+      xhr.send(file);
+    });
   }
   function cell(text) { const td = document.createElement('td'); td.textContent = text || ''; return td; }
   async function refresh() {
@@ -439,12 +538,43 @@ INDEX_HTML_TEMPLATE = r"""<!doctype html>
   async function upload() {
     const file = $('imageFile').files[0]; if (!file) { $('lastAction').textContent = 'Select the baby image tar first.'; return; }
     const headers = {}; if (file.name.endsWith('.gz') || file.name.endsWith('.tgz')) headers['content-encoding'] = 'gzip';
-    const result = await api('/api/upload', {method: 'POST', headers, body: file});
-    $('lastAction').textContent = `Uploaded ${result.image_id}`; await refresh();
+    setPrimaryActionsBusy(true, 'upload');
+    beginOperation('Uploading image', `Preparing ${file.name} (${formatBytes(file.size)})`, 0);
+    try {
+      const result = await uploadImage(file, headers);
+      finishOperation(true, 'Image staged', `Uploaded image ${result.image_id}`);
+      $('lastAction').textContent = `Uploaded ${result.image_id}`;
+      await refresh();
+    } catch (error) {
+      finishOperation(false, 'Image upload failed', error.message);
+      $('lastAction').textContent = error.message;
+    } finally {
+      setPrimaryActionsBusy(false);
+    }
   }
   async function create() {
-    const result = await api('/api/create', {method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'});
-    $('lastAction').textContent = `Started ${result.instance.instance_id}`; await refresh();
+    setPrimaryActionsBusy(true, 'create');
+    beginOperation(
+      'Starting baby container',
+      'Waiting for atakit-portal to create and start ssh-shell-1.',
+      null,
+    );
+    try {
+      const result = await api('/api/create', {method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'});
+      const instance = result.instance || {};
+      finishOperation(
+        true,
+        'Baby container running',
+        `${instance.instance_id || 'ssh-shell-1'} status: ${instance.status || 'running'}`,
+      );
+      $('lastAction').textContent = `Started ${instance.instance_id || 'ssh-shell-1'}`;
+      await refresh();
+    } catch (error) {
+      finishOperation(false, 'Baby container failed to start', error.message);
+      $('lastAction').textContent = error.message;
+    } finally {
+      setPrimaryActionsBusy(false);
+    }
   }
   async function instanceAction(path) {
     await api(path, {method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'}); await refresh();
