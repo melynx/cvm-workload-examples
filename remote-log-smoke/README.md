@@ -2,9 +2,9 @@
 
 Small workload for validating remote log collection through a Fluent Bit sidecar.
 
-Published version: `remote-log-smoke:v0.1.2`.
+Campaign version: `remote-log-smoke:v0.1.3`.
 
-This version runs only with `automata-linux:v0.2.7-debug`.
+This version runs only with `automata-linux:v0.2.8-debug`.
 
 The workload runs four generic log producers: `app`, `worker`, `scheduler`, and
 `metrics`. Each producer writes structured heartbeat logs through the portal's

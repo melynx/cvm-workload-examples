@@ -16,9 +16,9 @@ unmeasured-data = ["/peer-config.json"]
 
 [workload]
 name = "peer-attestation-demo"
-version = "v0.0.5"
+version = "v0.0.6"
 base-image-mode = "whitelist"
-base-image = ["automata-linux:v0.2.7-debug"]
+base-image = ["automata-linux:v0.2.8-debug"]
 image = { build = ".", containerfile = "Containerfile" }
 ports = ["3000:3000", "4000:4000"]
 restart = "unless-stopped"
@@ -30,8 +30,8 @@ workload-logs = true
 DASHBOARD_PORT = "3000"
 PEER_PORT = "4000"
 ONCHAIN_RPC_URL = "https://ethereum-hoodi-rpc.publicnode.com"
-SESSION_REGISTRY = "0xB247950fBBFCE245641e433AFd7d8884328CE5A1"
-BASE_IMAGE_REGISTRY = "0xCbe56f9B73c822679Cf36DcF8D99434E0f1588Ca"
+SESSION_REGISTRY = "0x69D51EBae287E1688f0b920448393100feF1B10e"
+BASE_IMAGE_REGISTRY = "0xcB90Ebe2e9f3c8C3f0ADA37895ABEd9429B0BAba"
 
 [workload.logging]
 log-readers = ["peer-attestation-demo"]

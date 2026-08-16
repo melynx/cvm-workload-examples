@@ -7,24 +7,24 @@ be built from source with `atakit workload build`.
 
 | Example | Checkout version | What it demonstrates |
 | --- | --- | --- |
-| [fedora-oci](fedora-oci/) | `v0.0.15` | Fedora shell-in box with SSH and debugging/networking tools |
-| [multi-container-example](multi-container-example/) | `v0.5.3` | Three containers sharing a persistent disk and container network |
-| [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.5` | Workload-owned baby-container image upload/update dashboard |
-| [peer-attestation-demo](peer-attestation-demo/) | `v0.0.5` | Two CVMs verify each other and communicate over an encrypted channel |
-| [iperf-benchmark](iperf-benchmark/) | `v0.1.2` | Minimal iperf3 server for TCP/UDP throughput testing |
-| [remote-log-smoke](remote-log-smoke/) | `v0.1.2` | Remote log collection through a Fluent Bit sidecar |
+| [fedora-oci](fedora-oci/) | `v0.0.16` | Fedora shell-in box with SSH and debugging/networking tools |
+| [multi-container-example](multi-container-example/) | `v0.5.4` | Three containers sharing a persistent disk and container network |
+| [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.6` | Workload-owned baby-container image upload/update dashboard |
+| [peer-attestation-demo](peer-attestation-demo/) | `v0.0.6` | Two CVMs verify each other and communicate over an encrypted channel |
+| [iperf-benchmark](iperf-benchmark/) | `v0.1.3` | Minimal iperf3 server for TCP/UDP throughput testing |
+| [remote-log-smoke](remote-log-smoke/) | `v0.1.3` | Remote log collection through a Fluent Bit sidecar |
 | [storage-ip-env-smoke](storage-ip-env-smoke/) | `v0.1.2` | Data-disk, non-empty IP, environment, and baby-container storage smoke test |
-| [selective-data-smoke](selective-data-smoke/) | `v0.1.2` | Manifest v5 selective measured and unmeasured data mounts |
-| [portal-pr-regression-smoke](portal-pr-regression-smoke/) | `v0.1.2` | Regression coverage for portal baby-container capability and storage behavior |
+| [selective-data-smoke](selective-data-smoke/) | `v0.1.3` | Manifest v5 selective measured and unmeasured data mounts |
+| [portal-pr-regression-smoke](portal-pr-regression-smoke/) | `v0.1.3` | Regression coverage for portal baby-container capability and storage behavior |
 
-The current published base image is `automata-linux:v0.2.7-debug`. The quick
+The current published base image is `automata-linux:v0.2.8-debug`. The quick
 start below follows the GCP TDX `c3-standard-4` path previously validated on
 Hoodi.
 
 The eight releases other than `storage-ip-env-smoke:v0.1.2` whitelist only
-`automata-linux:v0.2.7-debug`. The existing
+`automata-linux:v0.2.8-debug`. The existing
 `storage-ip-env-smoke:v0.1.2` release keeps an empty blacklist and permits
-`automata-linux:v0.2.7-debug`.
+`automata-linux:v0.2.8-debug`.
 
 For a fuller deployment walkthrough, see
 [docs/hoodi-deployment.md](docs/hoodi-deployment.md).
@@ -33,11 +33,11 @@ For a fuller deployment walkthrough, see
 
 Current published base image:
 
-- Image: `automata-linux:v0.2.7-debug`
+- Image: `automata-linux:v0.2.8-debug`
 - Hoodi base image ID:
   `0x8aba20306db032f6660ff83890e6b9a357558bd80bacc0eb8bc282210bbf82eb`
 - GitHub release:
-  `https://github.com/automata-network/automata-linux/releases/tag/v0.2.7-debug`
+  `https://github.com/automata-network/automata-linux/releases/tag/v0.2.8-debug`
 
 Published platform profiles:
 
@@ -120,7 +120,7 @@ chain = "hoodi"
 registration = "required"
 owner_key = "owner"
 gas_wallet = "gas"
-image = "automata-linux:v0.2.7-debug"
+image = "automata-linux:v0.2.8-debug"
 
 [cloud.providers.gcp-tdx]
 platform = "gcp"
@@ -140,20 +140,20 @@ serial-port-enable = "true"
 Pull the published base image:
 
 ```sh
-atakit image pull automata-linux:v0.2.7-debug gcp
+atakit image pull automata-linux:v0.2.8-debug gcp
 ```
 
 Pull and verify the published workload archives:
 
 ```sh
-atakit workload pull baby-container-dynamic-update:v0.1.5 --verify
-atakit workload pull fedora-oci:v0.0.15 --verify
-atakit workload pull iperf-benchmark:v0.1.2 --verify
-atakit workload pull multi-container-example:v0.5.3 --verify
-atakit workload pull peer-attestation-demo:v0.0.5 --verify
-atakit workload pull portal-pr-regression-smoke:v0.1.2 --verify
-atakit workload pull remote-log-smoke:v0.1.2 --verify
-atakit workload pull selective-data-smoke:v0.1.2 --verify
+atakit workload pull baby-container-dynamic-update:v0.1.6 --verify
+atakit workload pull fedora-oci:v0.0.16 --verify
+atakit workload pull iperf-benchmark:v0.1.3 --verify
+atakit workload pull multi-container-example:v0.5.4 --verify
+atakit workload pull peer-attestation-demo:v0.0.6 --verify
+atakit workload pull portal-pr-regression-smoke:v0.1.3 --verify
+atakit workload pull remote-log-smoke:v0.1.3 --verify
+atakit workload pull selective-data-smoke:v0.1.3 --verify
 atakit workload pull storage-ip-env-smoke:v0.1.2 --verify
 ```
 
@@ -162,22 +162,22 @@ atakit workload pull storage-ip-env-smoke:v0.1.2 --verify
 Deploy the four standalone examples:
 
 ```sh
-atakit cloud deploy fedora-oci:v0.0.15 \
+atakit cloud deploy fedora-oci:v0.0.16 \
   --target gcp-c3-standard-4 \
   --name fedora-oci-demo \
   --yes
 
-atakit cloud deploy multi-container-example:v0.5.3 \
+atakit cloud deploy multi-container-example:v0.5.4 \
   --target gcp-c3-standard-4 \
   --name multi-container-demo \
   --yes
 
-atakit cloud deploy baby-container-dynamic-update:v0.1.5 \
+atakit cloud deploy baby-container-dynamic-update:v0.1.6 \
   --target gcp-c3-standard-4 \
   --name baby-container-demo \
   --yes
 
-atakit cloud deploy iperf-benchmark:v0.1.2 \
+atakit cloud deploy iperf-benchmark:v0.1.3 \
   --target gcp-c3-standard-4 \
   --name iperf-benchmark-demo \
   --yes
@@ -192,7 +192,7 @@ cat > peer-alpha/peer-config.json <<EOF
 {"node_name":"alpha"}
 EOF
 
-atakit cloud deploy peer-attestation-demo:v0.0.5 \
+atakit cloud deploy peer-attestation-demo:v0.0.6 \
   --target gcp-c3-standard-4 \
   --name peer-demo-alpha \
   --unmeasured-data-root peer-alpha \
@@ -208,7 +208,7 @@ cat > peer-beta/peer-config.json <<EOF
 {"node_name":"beta","peer_addr":"<alpha-ip>:4000"}
 EOF
 
-atakit cloud deploy peer-attestation-demo:v0.0.5 \
+atakit cloud deploy peer-attestation-demo:v0.0.6 \
   --target gcp-c3-standard-4 \
   --name peer-demo-beta \
   --unmeasured-data-root peer-beta \
@@ -349,7 +349,7 @@ atakit cloud ls
 ```
 
 The deploy flow imports the base image into the selected GCP project as
-`automata-linux-v0-2-7-debug`. The cleanup commands above remove the example
+`automata-linux-v0-2-8-debug`. The cleanup commands above remove the example
 deployments, firewalls, and the multi-container persistent disk; they do not
 delete that reusable project image.
 

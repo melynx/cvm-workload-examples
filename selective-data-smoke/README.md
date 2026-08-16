@@ -2,9 +2,9 @@
 
 Small workload for manifest v5 selective measured and unmeasured data mounts.
 
-Published version: `selective-data-smoke:v0.1.2`.
+Campaign version: `selective-data-smoke:v0.1.3`.
 
-This version runs only with `automata-linux:v0.2.7-debug`.
+This version runs only with `automata-linux:v0.2.8-debug`.
 
 The workload service receives only:
 

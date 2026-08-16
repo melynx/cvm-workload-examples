@@ -36,7 +36,7 @@ else
   run_atakit workload build -d "${ROOT}" --no-store
 fi
 
-ARCHIVE="${ROOT}/remote-log-smoke-v0.1.2.atawl"
+ARCHIVE="${ROOT}/remote-log-smoke-v0.1.3.atawl"
 MANIFEST_JSON="${ROOT}/.runtime/${LOG_RUN_ID}/manifest.json"
 zstd -dc "${ARCHIVE}" | tar -xOf - remote-log-smoke/manifest.json > "${MANIFEST_JSON}"
 
@@ -47,8 +47,13 @@ jq -e '
   .config.dependencies.scheduler.logging["log-readers"] == ["log-shipper"] and
   .config.dependencies.metrics.logging["log-readers"] == ["log-shipper"] and
   .config.dependencies["log-shipper"]["workload-logs"] == true and
-  .config.dependencies["log-shipper"]["measured-data"] == true and
-  .config.dependencies["log-shipper"]["unmeasured-data"] == true and
+  .config.dependencies["log-shipper"]["measured-data"] == [
+    "measured-data/config/fluent-bit-parsers.conf",
+    "measured-data/config/fluent-bit.conf"
+  ] and
+  .config.dependencies["log-shipper"]["unmeasured-data"] == [
+    "unmeasured-data/secrets/runtime.env"
+  ] and
   .config.dependencies["log-shipper"]["unmeasured-env-files"] == ["unmeasured-data/secrets/runtime.env"]
 ' "${MANIFEST_JSON}" >/dev/null
 

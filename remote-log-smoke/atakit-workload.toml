@@ -9,9 +9,9 @@ unmeasured-data = ["/secrets/runtime.env"]
 
 [workload]
 name = "remote-log-smoke"
-version = "v0.1.2"
+version = "v0.1.3"
 base-image-mode = "whitelist"
-base-image = ["automata-linux:v0.2.7-debug"]
+base-image = ["automata-linux:v0.2.8-debug"]
 image = { build = ".", containerfile = "Containerfile" }
 restart = "unless-stopped"
 logging = { driver = "k8s-file", log-readers = ["log-shipper"] }
