@@ -1,11 +1,11 @@
 # baby-container-shell-dashboard
 
-`baby-container-shell-dashboard:v0.1.0` is a test-only workload for exercising
+`baby-container-shell-dashboard:v0.1.1` is a test-only workload for exercising
 interactive baby containers. The measured parent service exposes a web
 dashboard. The dashboard uploads and controls an SSH-enabled baby-container
 image through `/run/atakit-portal.sock`.
 
-This workload only accepts `automata-linux:v0.2.8-debug`.
+This workload only accepts `automata-linux:v0.3.0-debug`.
 
 ## Test credentials
 

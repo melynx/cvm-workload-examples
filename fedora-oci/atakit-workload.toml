@@ -38,7 +38,7 @@ format = 6
 # name: alphanumeric + hyphens, must not start with a hyphen.
 # version: must start with "v", followed by alphanumeric/.-_ chars.
 name = "fedora-oci"
-version = "v0.0.16"
+version = "v0.0.17"
 
 # ── on-chain parameters ──────────────────────────────────────────
 #
@@ -52,7 +52,7 @@ base-image-mode = "whitelist"
 # base-image: list of base image references (name:version) for the whitelist/blacklist.
 # Used by `cloud deploy` for local validation and by `workload publish` to derive
 # on-chain base image IDs. Override with `--base-image-id` on publish if needed.
-base-image = ["automata-linux:v0.2.8-debug"]
+base-image = ["0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/automata-linux:v0.3.0-debug"]
 
 # session-ttl: session TTL in seconds. Determines how long a CVM session
 # remains valid after attestation. Default: 0 (contract default, 30 days).
