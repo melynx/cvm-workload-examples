@@ -52,7 +52,7 @@ base-image-mode = "whitelist"
 # base-image: list of base image references (name:version) for the whitelist/blacklist.
 # Used by `cloud deploy` for local validation and by `workload publish` to derive
 # on-chain base image IDs. Override with `--base-image-id` on publish if needed.
-base-image = ["automata-linux:v0.2.8-debug"]
+base-image = ["automata-linux:v0.2.9-debug"]
 
 # session-ttl: session TTL in seconds. Determines how long a CVM session
 # remains valid after attestation. Default: 0 (contract default, 30 days).
