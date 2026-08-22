@@ -1,0 +1,70 @@
+format = 7
+
+[workload]
+name = "portal-socket-dashboard"
+version = "v0.3.0"
+base-image-mode = "whitelist"
+base-image = ["0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/automata-linux:v0.3.0-debug"]
+image = { build = ".", containerfile = "Containerfile" }
+ports = ["3300:3300/tcp"]
+restart = "unless-stopped"
+atakit-portal = true
+
+[workload.environment]
+DASHBOARD_PORT = "3300"
+PORTAL_SOCKET = "/run/atakit-portal.sock"
+PORTAL_HTTPS_HOST = "host.containers.internal"
+PORTAL_HTTPS_PORT = "2024"
+VERIFIERD_CHAIN_URL = "http://verifierd-chain:9100"
+VERIFIERD_TRUST_PACK_URL = "http://verifierd-trust-pack:9100"
+CHAIN_AUTHORITY_RPC_URL = "http://139.99.100.76:8545"
+CHAIN_AUTHORITY_CHAIN_ID = "31337"
+CHAIN_AUTHORITY_SESSION_REGISTRY = "0xb300837aa0d64a1e0CeF4E8AcA5b192e2a166B8E"
+TRUST_PACK_COLLATERAL_PUBLISHER_PUBKEY = "0x04685f12ea338abcb3e42a407dcdc9f498300e5b93a7f7f6b9b7a13699ec07193438eccd5f978267445942f5398b81886b533adc082615de29807d73dc728a7af8"
+TRUST_PACK_WORKLOAD_PUBLISHER_PUBKEY = "0x04685f12ea338abcb3e42a407dcdc9f498300e5b93a7f7f6b9b7a13699ec07193438eccd5f978267445942f5398b81886b533adc082615de29807d73dc728a7af8"
+ISOLATION_PEER_URL = "http://socket-peer:3301"
+SERVICE_ROLE = "primary"
+EXPECTED_BASE_IMAGE_REF = "0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/automata-linux:v0.3.0-debug"
+EXPECTED_WORKLOAD_REF = "0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/portal-socket-dashboard:v0.3.0"
+
+[package]
+unmeasured-data = ["/collateral.atatp", "/workload.atatp"]
+
+[dependencies.socket-peer]
+image = { build = ".", containerfile = "Containerfile" }
+restart = "unless-stopped"
+atakit-portal = true
+depends_on = ["verifierd-chain", "verifierd-trust-pack"]
+
+[dependencies.socket-peer.environment]
+DASHBOARD_PORT = "3301"
+PORTAL_SOCKET = "/run/atakit-portal.sock"
+PORTAL_HTTPS_HOST = "host.containers.internal"
+PORTAL_HTTPS_PORT = "2024"
+VERIFIERD_CHAIN_URL = "http://verifierd-chain:9100"
+VERIFIERD_TRUST_PACK_URL = "http://verifierd-trust-pack:9100"
+SERVICE_ROLE = "socket-peer"
+EXPECTED_BASE_IMAGE_REF = "0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/automata-linux:v0.3.0-debug"
+EXPECTED_WORKLOAD_REF = "0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/portal-socket-dashboard:v0.3.0"
+
+[dependencies.verifierd-chain]
+image = { file = "./images/atakit-verifierd.tar" }
+restart = "unless-stopped"
+
+[dependencies.verifierd-chain.environment]
+VERIFIERD_LISTEN = "0.0.0.0:9100"
+VERIFIERD_TRUST_MODE = "chain"
+VERIFIERD_RPC_URL = "http://139.99.100.76:8545"
+VERIFIERD_CHAIN_ID = "31337"
+VERIFIERD_SESSION_REGISTRY = "0xb300837aa0d64a1e0CeF4E8AcA5b192e2a166B8E"
+
+[dependencies.verifierd-trust-pack]
+image = { file = "./images/atakit-verifierd.tar" }
+restart = "unless-stopped"
+unmeasured-data = true
+
+[dependencies.verifierd-trust-pack.environment]
+VERIFIERD_LISTEN = "0.0.0.0:9100"
+VERIFIERD_TRUST_MODE = "trust-pack"
+VERIFIERD_COLLATERAL_PUBLISHER_PUBKEY = "0x04685f12ea338abcb3e42a407dcdc9f498300e5b93a7f7f6b9b7a13699ec07193438eccd5f978267445942f5398b81886b533adc082615de29807d73dc728a7af8"
+VERIFIERD_WORKLOAD_PUBLISHER_PUBKEY = "0x04685f12ea338abcb3e42a407dcdc9f498300e5b93a7f7f6b9b7a13699ec07193438eccd5f978267445942f5398b81886b533adc082615de29807d73dc728a7af8"

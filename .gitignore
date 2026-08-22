@@ -2,3 +2,4 @@
 **/.runtime/
 **/dist/
 /peer-attestation-demo/images/atakit-verifierd.tar
+/portal-socket-dashboard/images/atakit-verifierd.tar

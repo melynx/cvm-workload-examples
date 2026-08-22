@@ -16,6 +16,7 @@ be built from source with `atakit workload build`.
 | [storage-ip-env-smoke](storage-ip-env-smoke/) | `v0.1.2` | Data-disk, non-empty IP, environment, and baby-container storage smoke test |
 | [selective-data-smoke](selective-data-smoke/) | `v0.1.2` | Manifest v5 selective measured and unmeasured data mounts |
 | [portal-pr-regression-smoke](portal-pr-regression-smoke/) | `v0.1.2` | Regression coverage for portal baby-container capability and storage behavior |
+| [portal-socket-dashboard](portal-socket-dashboard/) | `v0.3.0` source | GCP TDX dashboard that compares Solidity-registry and signed trust-pack verifier authorities over the same portal socket evidence |
 
 The current published base image is `automata-linux:v0.2.7-debug`. The quick
 start below follows the GCP TDX `c3-standard-4` path previously validated on

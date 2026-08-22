@@ -1,0 +1,9 @@
+FROM docker.io/library/python:3.12-alpine
+
+WORKDIR /app
+COPY app.py .
+
+ENV PYTHONUNBUFFERED=1
+EXPOSE 3300
+
+CMD ["python", "-u", "app.py"]
