@@ -38,7 +38,7 @@ binding. Do not copy its encrypted-message protocol into an application.
    encrypted-message demonstration.
 
 `atakit-verifierd` performs the full portal TLS and current-session evidence
-verification. The selected `VERIFIED_TRUST_MODE` controls whether the trust
+verification. The selected `VERIFIERD_TRUST_MODE` controls whether the trust
 authority is the chain, trust packs, or explicit operator inputs. This workload
 currently selects `chain` in `atakit-workload.toml`.
 

@@ -18,14 +18,14 @@ be built from source with `atakit workload build`.
 | [portal-pr-regression-smoke](portal-pr-regression-smoke/) | `v0.1.2` | Regression coverage for portal baby-container capability and storage behavior |
 | [portal-socket-dashboard](portal-socket-dashboard/) | `v0.3.0` source | GCP TDX dashboard that compares Solidity-registry and signed trust-pack verifier authorities over the same portal socket evidence |
 
-The current published base image is `automata-linux:v0.2.7-debug`. The quick
+The current published base image is `automata-linux:v0.3.0-debug`. The quick
 start below follows the GCP TDX `c3-standard-4` path previously validated on
 Hoodi.
 
 The eight releases other than `storage-ip-env-smoke:v0.1.2` whitelist only
-`automata-linux:v0.2.7-debug`. The existing
+`automata-linux:v0.3.0-debug`. The existing
 `storage-ip-env-smoke:v0.1.2` release keeps an empty blacklist and permits
-`automata-linux:v0.2.7-debug`.
+`automata-linux:v0.3.0-debug`.
 
 For a fuller deployment walkthrough, see
 [docs/hoodi-deployment.md](docs/hoodi-deployment.md).
@@ -34,11 +34,11 @@ For a fuller deployment walkthrough, see
 
 Current published base image:
 
-- Image: `automata-linux:v0.2.7-debug`
+- Image: `automata-linux:v0.3.0-debug`
 - Hoodi base image ID:
-  `0x8aba20306db032f6660ff83890e6b9a357558bd80bacc0eb8bc282210bbf82eb`
+  `0x2fdcb9f3ffdcaaf693739c5bdec264f8f5d2404d7a268bf407e62ef9a2439445`
 - GitHub release:
-  `https://github.com/automata-network/automata-linux/releases/tag/v0.2.7-debug`
+  `https://github.com/automata-network/automata-linux/releases/tag/v0.3.0-debug`
 
 Published platform profiles:
 
@@ -121,7 +121,7 @@ chain = "hoodi"
 registration = "required"
 owner_key = "owner"
 gas_wallet = "gas"
-image = "automata-linux:v0.2.7-debug"
+image = "automata-linux:v0.3.0-debug"
 
 [cloud.providers.gcp-tdx]
 platform = "gcp"
@@ -141,7 +141,7 @@ serial-port-enable = "true"
 Pull the published base image:
 
 ```sh
-atakit image pull automata-linux:v0.2.7-debug gcp
+atakit image pull automata-linux:v0.3.0-debug gcp
 ```
 
 Pull and verify the published workload archives:
@@ -350,7 +350,7 @@ atakit cloud ls
 ```
 
 The deploy flow imports the base image into the selected GCP project as
-`automata-linux-v0-2-7-debug`. The cleanup commands above remove the example
+`automata-linux-v0-3-0-debug`. The cleanup commands above remove the example
 deployments, firewalls, and the multi-container persistent disk; they do not
 delete that reusable project image.
 

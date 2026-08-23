@@ -1,19 +1,19 @@
 # Hoodi Deployment Guide
 
 This guide deploys the published workload examples with the published
-`automata-linux:v0.2.7-debug` base image on Hoodi.
+`automata-linux:v0.3.0-debug` base image on Hoodi.
 
 The current published base image is:
 
-- Base image: `automata-linux:v0.2.7-debug`
+- Base image: `automata-linux:v0.3.0-debug`
 - Hoodi base image ID:
-  `0x8aba20306db032f6660ff83890e6b9a357558bd80bacc0eb8bc282210bbf82eb`
+  `0x2fdcb9f3ffdcaaf693739c5bdec264f8f5d2404d7a268bf407e62ef9a2439445`
 - Published workload repository: `melynx/cvm-workload-examples`
 
 The deployment flow below follows the GCP TDX `c3-standard-4` path previously
 validated on Hoodi.
 
-The live `automata-linux:v0.2.7-debug` variants are:
+The live `automata-linux:v0.3.0-debug` variants are:
 
 | Platform | Variant |
 | --- | --- |
@@ -23,9 +23,9 @@ The live `automata-linux:v0.2.7-debug` variants are:
 | `azure-sev-snp` | `Standard_DC2as_v5` |
 
 The eight releases other than `storage-ip-env-smoke:v0.1.2` whitelist only
-`automata-linux:v0.2.7-debug`. The existing
+`automata-linux:v0.3.0-debug`. The existing
 `storage-ip-env-smoke:v0.1.2` release keeps an empty blacklist and permits
-`automata-linux:v0.2.7-debug`.
+`automata-linux:v0.3.0-debug`.
 
 ## Configure atakit
 
@@ -66,7 +66,7 @@ chain = "hoodi"
 registration = "required"
 owner_key = "owner"
 gas_wallet = "gas"
-image = "automata-linux:v0.2.7-debug"
+image = "automata-linux:v0.3.0-debug"
 
 [cloud.providers.gcp-tdx]
 platform = "gcp"
@@ -84,7 +84,7 @@ serial-port-enable = "true"
 ## Pull published artifacts
 
 ```sh
-atakit image pull automata-linux:v0.2.7-debug gcp
+atakit image pull automata-linux:v0.3.0-debug gcp
 
 atakit workload pull baby-container-dynamic-update:v0.1.5 --verify
 atakit workload pull fedora-oci:v0.0.15 --verify
@@ -176,4 +176,4 @@ atakit cloud ls
 
 The destroy commands remove the deployments, firewalls, and workload disks.
 They do not remove the reusable imported cloud image
-`automata-linux-v0-2-7-debug`.
+`automata-linux-v0-3-0-debug`.

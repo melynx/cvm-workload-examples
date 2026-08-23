@@ -6,7 +6,7 @@ poking around inside a CVM.
 
 Published version: `fedora-oci:v0.0.15`.
 
-This version runs only with `automata-linux:v0.2.7-debug`.
+This version runs only with `automata-linux:v0.3.0-debug`.
 
 Use this workload when you need a debug container inside a deployed CVM. The
 base image itself is minimal and does not provide SSH; this workload exposes SSH

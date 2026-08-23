@@ -5,7 +5,7 @@ persistent disk and communicating over the workload container network.
 
 Published version: `multi-container-example:v0.5.3`.
 
-This version runs only with `automata-linux:v0.2.7-debug`.
+This version runs only with `automata-linux:v0.3.0-debug`.
 
 ## Architecture
 

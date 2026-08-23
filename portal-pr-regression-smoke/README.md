@@ -5,7 +5,7 @@ fallback and baby-container `SYS_CHROOT`.
 
 Published version: `portal-pr-regression-smoke:v0.1.2`.
 
-This version runs only with `automata-linux:v0.2.7-debug`.
+This version runs only with `automata-linux:v0.3.0-debug`.
 
 It validates:
 

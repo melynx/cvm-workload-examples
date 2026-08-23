@@ -5,7 +5,7 @@ debugging packet loss, jitter, and source-path issues.
 
 Published version: `iperf-benchmark:v0.1.2`.
 
-This version runs only with `automata-linux:v0.2.7-debug`.
+This version runs only with `automata-linux:v0.3.0-debug`.
 
 ## What It Runs
 

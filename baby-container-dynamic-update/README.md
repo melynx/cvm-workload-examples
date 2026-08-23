@@ -7,7 +7,7 @@ inside the parent service.
 
 Published version: `baby-container-dynamic-update:v0.1.5`.
 
-This version runs only with `automata-linux:v0.2.7-debug`.
+This version runs only with `automata-linux:v0.3.0-debug`.
 
 ## Architecture
 
