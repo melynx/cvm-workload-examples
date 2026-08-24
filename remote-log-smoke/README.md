@@ -2,7 +2,7 @@
 
 Small workload for validating remote log collection through a Fluent Bit sidecar.
 
-Published version: `remote-log-smoke:v0.1.2`.
+Published version: `remote-log-smoke:v0.1.3`.
 
 This version runs only with `automata-linux:v0.3.0-debug`.
 

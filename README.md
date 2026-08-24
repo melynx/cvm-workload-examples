@@ -7,24 +7,24 @@ be built from source with `atakit workload build`.
 
 | Example | Checkout version | What it demonstrates |
 | --- | --- | --- |
-| [fedora-oci](fedora-oci/) | `v0.0.15` | Fedora shell-in box with SSH and debugging/networking tools |
-| [multi-container-example](multi-container-example/) | `v0.5.3` | Three containers sharing a persistent disk and container network |
-| [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.5` | Workload-owned baby-container image upload/update dashboard |
+| [fedora-oci](fedora-oci/) | `v0.0.17` | Fedora shell-in box with SSH and debugging/networking tools |
+| [multi-container-example](multi-container-example/) | `v0.5.5` | Three containers sharing a persistent disk and container network |
+| [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.6` | Workload-owned baby-container image upload/update dashboard |
 | [peer-attestation-demo](peer-attestation-demo/) | `v0.0.6` source | Two CVMs verify current sessions through `atakit-verifierd`; its encrypted-message framing is not a secure channel |
-| [iperf-benchmark](iperf-benchmark/) | `v0.1.2` | Minimal iperf3 server for TCP/UDP throughput testing |
-| [remote-log-smoke](remote-log-smoke/) | `v0.1.2` | Remote log collection through a Fluent Bit sidecar |
-| [storage-ip-env-smoke](storage-ip-env-smoke/) | `v0.1.2` | Data-disk, non-empty IP, environment, and baby-container storage smoke test |
-| [selective-data-smoke](selective-data-smoke/) | `v0.1.2` | Manifest v5 selective measured and unmeasured data mounts |
-| [portal-pr-regression-smoke](portal-pr-regression-smoke/) | `v0.1.2` | Regression coverage for portal baby-container capability and storage behavior |
+| [iperf-benchmark](iperf-benchmark/) | `v0.1.3` | Minimal iperf3 server for TCP/UDP throughput testing |
+| [remote-log-smoke](remote-log-smoke/) | `v0.1.3` | Remote log collection through a Fluent Bit sidecar |
+| [storage-ip-env-smoke](storage-ip-env-smoke/) | `v0.1.3` | Data-disk, non-empty IP, environment, and baby-container storage smoke test |
+| [selective-data-smoke](selective-data-smoke/) | `v0.1.3` | Manifest v5 selective measured and unmeasured data mounts |
+| [portal-pr-regression-smoke](portal-pr-regression-smoke/) | `v0.1.3` | Regression coverage for portal baby-container capability and storage behavior |
 | [portal-socket-dashboard](portal-socket-dashboard/) | `v0.3.0` source | GCP TDX dashboard that compares Solidity-registry and signed trust-pack verifier authorities over the same portal socket evidence |
 
 The current published base image is `automata-linux:v0.3.0-debug`. The quick
 start below follows the GCP TDX `c3-standard-4` path previously validated on
 Hoodi.
 
-The eight releases other than `storage-ip-env-smoke:v0.1.2` whitelist only
+The eight releases other than `storage-ip-env-smoke:v0.1.3` whitelist only
 `automata-linux:v0.3.0-debug`. The existing
-`storage-ip-env-smoke:v0.1.2` release keeps an empty blacklist and permits
+`storage-ip-env-smoke:v0.1.3` release keeps an empty blacklist and permits
 `automata-linux:v0.3.0-debug`.
 
 For a fuller deployment walkthrough, see
@@ -147,15 +147,15 @@ atakit image pull automata-linux:v0.3.0-debug gcp
 Pull and verify the published workload archives:
 
 ```sh
-atakit workload pull baby-container-dynamic-update:v0.1.5 --verify
-atakit workload pull fedora-oci:v0.0.15 --verify
-atakit workload pull iperf-benchmark:v0.1.2 --verify
-atakit workload pull multi-container-example:v0.5.3 --verify
+atakit workload pull baby-container-dynamic-update:v0.1.6 --verify
+atakit workload pull fedora-oci:v0.0.17 --verify
+atakit workload pull iperf-benchmark:v0.1.3 --verify
+atakit workload pull multi-container-example:v0.5.5 --verify
 atakit workload pull peer-attestation-demo:v0.0.5 --verify
-atakit workload pull portal-pr-regression-smoke:v0.1.2 --verify
-atakit workload pull remote-log-smoke:v0.1.2 --verify
-atakit workload pull selective-data-smoke:v0.1.2 --verify
-atakit workload pull storage-ip-env-smoke:v0.1.2 --verify
+atakit workload pull portal-pr-regression-smoke:v0.1.3 --verify
+atakit workload pull remote-log-smoke:v0.1.3 --verify
+atakit workload pull selective-data-smoke:v0.1.3 --verify
+atakit workload pull storage-ip-env-smoke:v0.1.3 --verify
 ```
 
 ## Deploy examples
@@ -163,22 +163,22 @@ atakit workload pull storage-ip-env-smoke:v0.1.2 --verify
 Deploy the four standalone examples:
 
 ```sh
-atakit cloud deploy fedora-oci:v0.0.15 \
+atakit cloud deploy fedora-oci:v0.0.17 \
   --target gcp-c3-standard-4 \
   --name fedora-oci-demo \
   --yes
 
-atakit cloud deploy multi-container-example:v0.5.3 \
+atakit cloud deploy multi-container-example:v0.5.5 \
   --target gcp-c3-standard-4 \
   --name multi-container-demo \
   --yes
 
-atakit cloud deploy baby-container-dynamic-update:v0.1.5 \
+atakit cloud deploy baby-container-dynamic-update:v0.1.6 \
   --target gcp-c3-standard-4 \
   --name baby-container-demo \
   --yes
 
-atakit cloud deploy iperf-benchmark:v0.1.2 \
+atakit cloud deploy iperf-benchmark:v0.1.3 \
   --target gcp-c3-standard-4 \
   --name iperf-benchmark-demo \
   --yes

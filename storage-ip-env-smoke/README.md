@@ -2,7 +2,7 @@
 
 Small end-to-end workload for manifest v5 storage and IP environment support.
 
-Published version: `storage-ip-env-smoke:v0.1.2`.
+Published version: `storage-ip-env-smoke:v0.1.3`.
 
 Its empty blacklist permits `automata-linux:v0.3.0-debug` and other base
 images that are not explicitly denied.

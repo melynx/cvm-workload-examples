@@ -22,9 +22,9 @@ The live `automata-linux:v0.3.0-debug` variants are:
 | `azure-tdx` | `Standard_DC2es_v6` |
 | `azure-sev-snp` | `Standard_DC2as_v5` |
 
-The eight releases other than `storage-ip-env-smoke:v0.1.2` whitelist only
+The eight releases other than `storage-ip-env-smoke:v0.1.3` whitelist only
 `automata-linux:v0.3.0-debug`. The existing
-`storage-ip-env-smoke:v0.1.2` release keeps an empty blacklist and permits
+`storage-ip-env-smoke:v0.1.3` release keeps an empty blacklist and permits
 `automata-linux:v0.3.0-debug`.
 
 ## Configure atakit
@@ -86,31 +86,31 @@ serial-port-enable = "true"
 ```sh
 atakit image pull automata-linux:v0.3.0-debug gcp
 
-atakit workload pull baby-container-dynamic-update:v0.1.5 --verify
-atakit workload pull fedora-oci:v0.0.15 --verify
-atakit workload pull iperf-benchmark:v0.1.2 --verify
-atakit workload pull multi-container-example:v0.5.3 --verify
+atakit workload pull baby-container-dynamic-update:v0.1.6 --verify
+atakit workload pull fedora-oci:v0.0.17 --verify
+atakit workload pull iperf-benchmark:v0.1.3 --verify
+atakit workload pull multi-container-example:v0.5.5 --verify
 atakit workload pull peer-attestation-demo:v0.0.5 --verify
-atakit workload pull portal-pr-regression-smoke:v0.1.2 --verify
-atakit workload pull remote-log-smoke:v0.1.2 --verify
-atakit workload pull selective-data-smoke:v0.1.2 --verify
-atakit workload pull storage-ip-env-smoke:v0.1.2 --verify
+atakit workload pull portal-pr-regression-smoke:v0.1.3 --verify
+atakit workload pull remote-log-smoke:v0.1.3 --verify
+atakit workload pull selective-data-smoke:v0.1.3 --verify
+atakit workload pull storage-ip-env-smoke:v0.1.3 --verify
 ```
 
 ## Deploy standalone examples
 
 ```sh
-atakit cloud deploy fedora-oci:v0.0.15 \
+atakit cloud deploy fedora-oci:v0.0.17 \
   --target gcp-c3-standard-4 \
   --name fedora-oci-demo \
   --yes
 
-atakit cloud deploy multi-container-example:v0.5.3 \
+atakit cloud deploy multi-container-example:v0.5.5 \
   --target gcp-c3-standard-4 \
   --name multi-container-demo \
   --yes
 
-atakit cloud deploy baby-container-dynamic-update:v0.1.5 \
+atakit cloud deploy baby-container-dynamic-update:v0.1.6 \
   --target gcp-c3-standard-4 \
   --name baby-container-demo \
   --yes

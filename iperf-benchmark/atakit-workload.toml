@@ -4,7 +4,7 @@ format = 5
 
 [workload]
 name = "iperf-benchmark"
-version = "v0.1.2"
+version = "v0.1.3"
 base-image-mode = "whitelist"
 base-image = ["0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/automata-linux:v0.3.0-debug"]
 image = { build = ".", containerfile = "Containerfile" }
