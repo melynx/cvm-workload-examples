@@ -2,12 +2,15 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --gcp-ak-root-cert PATH [--measurement-pack PATH] [--valid-for DURATION]"
+  echo "Usage: $0 --gcp-ak-root-cert PATH --chain-rpc-url URL --chain-id ID --session-registry ADDRESS [--measurement-pack PATH] [--valid-for DURATION]"
   echo
   echo "Build the portal socket dashboard archive and both trust packs."
 }
 
 gcp_ak_root_cert=""
+chain_rpc_url=""
+chain_id=""
+session_registry=""
 measurement_pack=""
 valid_for="30d"
 workload_signing_key="${WORKLOAD_SIGNING_KEY:-owner}"
@@ -19,6 +22,18 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --gcp-ak-root-cert)
       gcp_ak_root_cert="$2"
+      shift 2
+      ;;
+    --chain-rpc-url)
+      chain_rpc_url="$2"
+      shift 2
+      ;;
+    --chain-id)
+      chain_id="$2"
+      shift 2
+      ;;
+    --session-registry)
+      session_registry="$2"
       shift 2
       ;;
     --measurement-pack)
@@ -45,6 +60,18 @@ if [[ -z "$gcp_ak_root_cert" || ! -f "$gcp_ak_root_cert" ]]; then
   echo "--gcp-ak-root-cert must name an existing GCP vTPM AK root certificate" >&2
   exit 2
 fi
+if [[ ! "$chain_rpc_url" =~ ^https?://[^[:space:]]+$ ]]; then
+  echo "--chain-rpc-url must be an HTTP or HTTPS URL" >&2
+  exit 2
+fi
+if [[ ! "$chain_id" =~ ^[1-9][0-9]*$ ]]; then
+  echo "--chain-id must be a positive integer" >&2
+  exit 2
+fi
+if [[ ! "$session_registry" =~ ^0x[[:xdigit:]]{40}$ ]]; then
+  echo "--session-registry must be a canonical 20-byte 0x hexadecimal address" >&2
+  exit 2
+fi
 
 script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 example_dir="$(CDPATH= cd -- "$script_dir/.." && pwd)"
@@ -52,10 +79,51 @@ runtime_dir="$example_dir/.runtime"
 build_dir="$runtime_dir/build"
 pack_input_dir="$runtime_dir/pack-inputs"
 unmeasured_dir="$runtime_dir/unmeasured"
+workload_source_dir="$runtime_dir/workload-source"
 workload_archive="$build_dir/portal-socket-dashboard-v0.3.0.atawl"
 expected_public_key="0x04685f12ea338abcb3e42a407dcdc9f498300e5b93a7f7f6b9b7a13699ec07193438eccd5f978267445942f5398b81886b533adc082615de29807d73dc728a7af8"
 
 mkdir -p "$build_dir" "$pack_input_dir" "$unmeasured_dir"
+
+# The fork registry address can change after a clean reset. Build from a staged
+# copy so every archive measures the current chain coordinates without changing
+# the checked-in manifest.
+mkdir -p "$workload_source_dir"
+rsync -a --delete --exclude '/.runtime/' "$example_dir/" "$workload_source_dir/"
+manifest="$workload_source_dir/atakit-workload.toml"
+rendered_manifest="$manifest.rendered"
+awk \
+  -v rpc_url="$chain_rpc_url" \
+  -v chain_id="$chain_id" \
+  -v session_registry="$session_registry" \
+  '
+    $1 == "CHAIN_AUTHORITY_RPC_URL" { print $1 " = \"" rpc_url "\""; next }
+    $1 == "CHAIN_AUTHORITY_CHAIN_ID" { print $1 " = \"" chain_id "\""; next }
+    $1 == "CHAIN_AUTHORITY_SESSION_REGISTRY" { print $1 " = \"" session_registry "\""; next }
+    $1 == "VERIFIERD_RPC_URL" { print $1 " = \"" rpc_url "\""; next }
+    $1 == "VERIFIERD_CHAIN_ID" { print $1 " = \"" chain_id "\""; next }
+    $1 == "VERIFIERD_SESSION_REGISTRY" { print $1 " = \"" session_registry "\""; next }
+    { print }
+  ' "$manifest" >"$rendered_manifest"
+mv "$rendered_manifest" "$manifest"
+
+require_rendered_line() {
+  local expected="$1"
+  local expected_count="$2"
+  local actual_count
+  actual_count="$(grep -Fxc "$expected" "$manifest" || true)"
+  if [[ "$actual_count" != "$expected_count" ]]; then
+    echo "Expected $expected_count rendered manifest line(s), found $actual_count: $expected" >&2
+    exit 1
+  fi
+}
+
+require_rendered_line "CHAIN_AUTHORITY_RPC_URL = \"$chain_rpc_url\"" 1
+require_rendered_line "CHAIN_AUTHORITY_CHAIN_ID = \"$chain_id\"" 1
+require_rendered_line "CHAIN_AUTHORITY_SESSION_REGISTRY = \"$session_registry\"" 1
+require_rendered_line "VERIFIERD_RPC_URL = \"$chain_rpc_url\"" 1
+require_rendered_line "VERIFIERD_CHAIN_ID = \"$chain_id\"" 1
+require_rendered_line "VERIFIERD_SESSION_REGISTRY = \"$session_registry\"" 1
 
 key_public_value() {
   local key_name="$1"
@@ -95,7 +163,7 @@ if [[ ! -f "${measurement_pack%.json}.sig" || ! -f "${measurement_pack%.json}.pu
 fi
 
 "$atakit_bin" workload build \
-  --dir "$example_dir" \
+  --dir "$workload_source_dir" \
   --output "$build_dir" \
   --unmeasured-data-root "$unmeasured_dir" \
   --signing-key "$workload_signing_key" \

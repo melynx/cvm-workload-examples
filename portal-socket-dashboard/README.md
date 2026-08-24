@@ -66,17 +66,29 @@ test supplied it.
 Run the build helper from this directory:
 
 ```sh
-./scripts/build-e2e.sh --gcp-ak-root-cert /path/to/gcp-ak-root.pem
+./scripts/build-e2e.sh \
+  --gcp-ak-root-cert /path/to/gcp-ak-root.pem \
+  --chain-rpc-url http://hoodi-fork.example:8545 \
+  --chain-id 31337 \
+  --session-registry 0x0123456789abcdef0123456789abcdef01234567
 ```
+
+Use the live chain coordinates after the clean fork reset and contract graph
+deployment. The helper requires them for every build. It replaces the explicit
+placeholders in a staged copy of `atakit-workload.toml`; it does not change the
+checked-in manifest. This prevents a new archive from silently measuring a
+registry address from an older fork.
 
 The helper performs these steps in order:
 
-1. It runs `atakit-imgbuild measurement-pack` for
+1. It stages the workload source and injects the supplied chain RPC URL, chain
+   ID, and `SessionRegistry` address into the measured environment.
+2. It runs `atakit-imgbuild measurement-pack` for
    `automata-linux:v0.3.0-debug` unless `--measurement-pack` supplies an
    existing pack.
-2. It builds `portal-socket-dashboard-v0.3.0.atawl`.
-3. It builds `collateral.atatp` from the trusted GCP AK root.
-4. It builds `workload.atatp` from the workload archive and measurement pack.
+3. It builds `portal-socket-dashboard-v0.3.0.atawl`.
+4. It builds `collateral.atatp` from the trusted GCP AK root.
+5. It builds `workload.atatp` from the workload archive and measurement pack.
 
 Outputs are written below `.runtime/`. The helper prints the exact workload
 archive and unmeasured-data root to use for deployment.
