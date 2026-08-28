@@ -1,0 +1,10 @@
+FROM docker.io/library/python:3.12-alpine
+
+WORKDIR /baby
+COPY worker.py ./
+ARG BABY_PAYLOAD_BYTES=1073741824
+RUN truncate -s "${BABY_PAYLOAD_BYTES}" /baby/payload.bin
+
+ENV BABY_PAYLOAD_PATH=/baby/payload.bin
+
+CMD ["python", "worker.py"]

@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Baby-Container Tester</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #111813;
+      --paper: #f2f0e7;
+      --panel: #fcfbf5;
+      --line: #c8cbbf;
+      --quiet: #646b64;
+      --green: #b8f25b;
+      --green-dark: #315c10;
+      --red: #d53f31;
+      --shadow: 0 24px 60px rgba(17, 24, 19, .12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(17,24,19,.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(17,24,19,.045) 1px, transparent 1px),
+        var(--paper);
+      background-size: 32px 32px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input { font: inherit; }
+    code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .shell { width: min(1240px, calc(100% - 32px)); margin: 0 auto; padding: 30px 0 48px; }
+    .topline { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; }
+    .brand { display: flex; align-items: center; gap: 11px; font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .brand-mark { width: 15px; height: 15px; background: var(--green); border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+    .live { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(252,251,245,.86); font-size: 12px; font-weight: 750; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-dark); box-shadow: 0 0 0 4px rgba(184,242,91,.35); }
+    .hero { position: relative; overflow: hidden; display: grid; grid-template-columns: 1.45fr .75fr; min-height: 320px; background: var(--ink); color: #fff; border-radius: 24px; box-shadow: var(--shadow); }
+    .hero-copy { padding: clamp(30px, 5vw, 64px); position: relative; z-index: 1; }
+    .eyebrow { margin: 0 0 18px; color: var(--green); font: 700 12px/1.3 ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 760px; font-size: clamp(42px, 7vw, 78px); line-height: .92; letter-spacing: -.06em; font-weight: 850; }
+    .hero-copy > p:last-child { max-width: 680px; margin: 24px 0 0; color: #cdd4ce; font-size: 16px; line-height: 1.6; }
+    .hero-side { position: relative; min-height: 240px; border-left: 1px solid #303933; background: radial-gradient(circle at 58% 46%, rgba(184,242,91,.3), transparent 35%); }
+    .orbit { position: absolute; border: 1px solid rgba(255,255,255,.22); border-radius: 50%; }
+    .orbit.one { width: 260px; height: 260px; right: -32px; top: 26px; }
+    .orbit.two { width: 154px; height: 154px; right: 21px; top: 79px; border-color: var(--green); }
+    .core { position: absolute; right: 83px; top: 142px; width: 28px; height: 28px; border-radius: 50%; background: var(--green); box-shadow: 0 0 50px var(--green); }
+    .environment-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 14px; overflow: hidden; border: 1px solid var(--ink); border-radius: 14px; background: var(--ink); }
+    .env-cell { padding: 14px 18px; background: var(--green); }
+    .env-cell span { display: block; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .env-cell strong { display: block; margin-top: 4px; font-size: 16px; overflow-wrap: anywhere; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 14px; }
+    .metric, .panel { background: rgba(252,251,245,.96); border: 1px solid var(--line); border-radius: 18px; }
+    .metric { padding: 21px; min-width: 0; }
+    .metric-label { display: block; margin-bottom: 14px; color: var(--quiet); font-size: 11px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    .metric-value { display: block; overflow-wrap: anywhere; font-size: clamp(23px, 3vw, 34px); line-height: 1; letter-spacing: -.04em; font-weight: 820; }
+    .metric-note { display: block; margin-top: 10px; overflow-wrap: anywhere; color: var(--quiet); font: 11px/1.45 ui-monospace, monospace; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr); gap: 14px; margin-top: 14px; }
+    .panel { padding: clamp(22px, 4vw, 34px); min-width: 0; }
+    .panel-head { display: flex; align-items: start; justify-content: space-between; gap: 18px; margin-bottom: 24px; }
+    h2 { margin: 0; font-size: 23px; letter-spacing: -.035em; }
+    .panel-sub { margin: 6px 0 0; color: var(--quiet); font-size: 13px; line-height: 1.5; }
+    .step { display: grid; grid-template-columns: 34px 1fr; gap: 14px; padding: 18px 0; border-top: 1px solid var(--line); }
+    .step-num { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--ink); background: var(--green); border: 1px solid var(--ink); font: 800 12px ui-monospace, monospace; }
+    .step h3 { margin: 1px 0 5px; font-size: 15px; }
+    .step p { margin: 0 0 14px; color: var(--quiet); font-size: 13px; line-height: 1.5; }
+    .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    input[type=file] { width: min(100%, 330px); color: var(--quiet); font-size: 12px; }
+    input[type=file]::file-selector-button { margin-right: 10px; padding: 9px 12px; border: 1px solid var(--ink); border-radius: 8px; background: transparent; font-weight: 750; cursor: pointer; }
+    input[type=text] { width: min(100%, 270px); padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: #fff; }
+    .button { border: 1px solid var(--ink); border-radius: 10px; padding: 10px 15px; background: var(--ink); color: #fff; font-weight: 780; cursor: pointer; transition: transform .15s, box-shadow .15s; }
+    .button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 0 rgba(17,24,19,.16); }
+    .button:disabled { cursor: not-allowed; opacity: .45; }
+    .button.accent { background: var(--green); color: var(--ink); }
+    .button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+    .button.danger { background: transparent; color: var(--red); border-color: #e8aaa3; }
+    .progress { display: none; height: 8px; margin-top: 13px; overflow: hidden; border-radius: 999px; background: #dfe1d7; }
+    .progress.visible { display: block; }
+    .progress-bar { width: 0; height: 100%; background: var(--green-dark); transition: width .2s; }
+    .status-list { display: grid; }
+    .status-row { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 14px; padding: 13px 0; border-top: 1px solid var(--line); }
+    .status-label { color: var(--quiet); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+    .status-value { min-width: 0; overflow-wrap: anywhere; font: 600 12px/1.5 ui-monospace, monospace; }
+    .tag { display: inline-flex; align-items: center; gap: 7px; width: fit-content; padding: 5px 9px; border-radius: 999px; background: #e3e5dc; color: var(--quiet); font: 750 11px ui-monospace, monospace; text-transform: uppercase; }
+    .tag.good { background: rgba(184,242,91,.5); color: #25470e; }
+    .tag.bad { background: #fbd8d2; color: #8d251c; }
+    .logs { min-height: 150px; max-height: 280px; margin: 18px 0 0; padding: 16px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 12px; color: #cfe2d3; background: #18221c; font-size: 11px; line-height: 1.6; }
+    .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin-top: 14px; overflow: hidden; border: 1px solid #303933; border-radius: 18px; background: #303933; }
+    .fact { min-width: 0; padding: 18px; color: #fff; background: #243029; }
+    .fact span { display: block; margin-bottom: 8px; color: #aab5ac; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    .fact strong { display: block; overflow-wrap: anywhere; font: 650 12px/1.5 ui-monospace, monospace; }
+    .notice { min-height: 22px; margin: 18px 0 0; color: var(--quiet); font-size: 13px; }
+    .notice.error { color: var(--red); }
+    .footer { display: flex; justify-content: space-between; gap: 18px; margin-top: 18px; color: var(--quiet); font-size: 11px; }
+    @media (max-width: 960px) { .grid, .facts { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 800px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-side { display: none; }
+      .workspace { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .environment-bar, .grid, .facts { grid-template-columns: 1fr; }
+      .status-row { grid-template-columns: 105px minmax(0, 1fr); }
+      .footer { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topline">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span> Atakit runtime</div>
+      <div class="live"><span class="live-dot" aria-hidden="true"></span><span id="connection">Connecting</span></div>
+    </div>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Portable confidential-compute lab</p>
+        <h1>Baby-Container Tester</h1>
+        <p>Upload any supported OCI or Docker archive, start its isolated child runtime, inspect its logs, and see the actual TEE and verification mode supplied by the portal.</p>
+      </div>
+      <div class="hero-side" aria-hidden="true"><div class="orbit one"></div><div class="orbit two"></div><div class="core"></div></div>
+    </section>
+
+    <section class="environment-bar" aria-label="Detected environment">
+      <div class="env-cell"><span>Cloud</span><strong id="cloudType">Detecting</strong></div>
+      <div class="env-cell"><span>TEE</span><strong id="teeType">Detecting</strong></div>
+      <div class="env-cell"><span>Verification</span><strong id="verificationMode">Detecting</strong></div>
+    </section>
+
+    <section class="grid" aria-label="Runtime metrics">
+      <article class="metric"><span class="metric-label">Workload test payload</span><strong class="metric-value" id="workloadSize">—</strong><span class="metric-note" id="workloadBytes">Not configured</span></article>
+      <article class="metric"><span class="metric-label">Uploaded archive</span><strong class="metric-value" id="uploadSize">—</strong><span class="metric-note" id="uploadBytes">No upload this run</span></article>
+      <article class="metric"><span class="metric-label">Baby-reported payload</span><strong class="metric-value" id="babySize">—</strong><span class="metric-note" id="babyBytes">Waiting for structured log</span></article>
+      <article class="metric"><span class="metric-label">Active instances</span><strong class="metric-value" id="instanceCount">0 / 1</strong><span class="metric-note" id="slotName">Slot: tester</span></article>
+    </section>
+
+    <section class="workspace">
+      <article class="panel">
+        <div class="panel-head">
+          <div><h2>Test controls</h2><p class="panel-sub">One image and one isolated instance per session.</p></div>
+          <span class="tag" id="flowTag">Ready</span>
+        </div>
+        <div class="step">
+          <div class="step-num">01</div>
+          <div>
+            <h3>Upload an image archive</h3>
+            <p>Raw request size must not exceed the portal limit of 1 GiB. Compressed OCI layers are supported.</p>
+            <div class="controls">
+              <input id="imageFile" type="file" accept=".tar,application/x-tar,application/octet-stream" aria-label="Baby-container image archive">
+              <button class="button" id="uploadButton" type="button">Upload image</button>
+            </div>
+            <div class="progress" id="progress" aria-label="Upload progress"><div class="progress-bar" id="progressBar"></div></div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div>
+            <h3>Create an instance</h3>
+            <p>Use an optional stable instance ID, or let the portal assign one.</p>
+            <div class="controls">
+              <input id="instanceIdInput" type="text" maxlength="96" placeholder="Optional instance ID" aria-label="Optional instance ID">
+              <button class="button accent" id="createButton" type="button">Create container</button>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div>
+            <h3>Reset the test</h3>
+            <p>Stop or remove the current instance, then remove the uploaded image if needed.</p>
+            <div class="controls">
+              <button class="button ghost" id="stopButton" type="button">Stop</button>
+              <button class="button danger" id="removeButton" type="button">Remove instance</button>
+              <button class="button danger" id="removeImageButton" type="button">Remove image</button>
+            </div>
+          </div>
+        </div>
+        <p class="notice" id="notice" role="status" aria-live="polite"></p>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div><h2>Runtime state</h2><p class="panel-sub">Live image, instance, and log data from the local portal.</p></div>
+          <button class="button" id="refreshButton" type="button">Refresh</button>
+        </div>
+        <div class="status-list">
+          <div class="status-row"><span class="status-label">Image</span><span class="status-value" id="imageState">Not uploaded</span></div>
+          <div class="status-row"><span class="status-label">Instance</span><span class="status-value"><span class="tag" id="instanceState">Not created</span></span></div>
+          <div class="status-row"><span class="status-label">Instance ID</span><span class="status-value" id="instanceId">—</span></div>
+          <div class="status-row"><span class="status-label">Container</span><span class="status-value" id="containerName">—</span></div>
+          <div class="status-row"><span class="status-label">Container ID</span><span class="status-value" id="containerId">—</span></div>
+          <div class="status-row"><span class="status-label">Last update</span><span class="status-value" id="lastUpdate">—</span></div>
+        </div>
+        <pre class="logs" id="logs">No baby-container logs yet.</pre>
+      </article>
+    </section>
+
+    <section class="facts" aria-label="Portal identity and verification">
+      <div class="fact"><span>Machine</span><strong id="machineType">—</strong></div>
+      <div class="fact"><span>Attestation</span><strong id="attestationMode">—</strong></div>
+      <div class="fact"><span>Chain status</span><strong id="chainStatus">—</strong></div>
+      <div class="fact"><span>Prover</span><strong id="prover">Not used</strong></div>
+      <div class="fact"><span>Workload</span><strong id="workloadRef">—</strong></div>
+      <div class="fact"><span>Workload ID</span><strong id="workloadId">—</strong></div>
+      <div class="fact"><span>Session ID</span><strong id="sessionId">—</strong></div>
+      <div class="fact"><span>Chain ID</span><strong id="chainId">—</strong></div>
+    </section>
+
+    <footer class="footer"><span id="footerEnvironment">Environment supplied by the portal</span><span>Refreshes every 5 seconds</span></footer>
+  </main>
+  <script>
+    const byId = (id) => document.getElementById(id);
+    const buttons = ['uploadButton', 'createButton', 'stopButton', 'removeButton', 'removeImageButton'];
+    let currentImage = null;
+    let currentInstance = null;
+    let uploadLimit = 1073741824;
+
+    function formatBytes(bytes) {
+      if (!Number.isFinite(bytes)) return '—';
+      const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+      let value = bytes;
+      let unit = 0;
+      while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit += 1; }
+      const precision = unit === 0 ? 0 : 2;
+      return `${value.toFixed(precision)} ${units[unit]}`;
+    }
+    const exactBytes = (bytes, fallback) => Number.isFinite(bytes) ? `${bytes.toLocaleString()} bytes` : fallback;
+    const label = (value, fallback = '—') => value === null || value === undefined || value === '' ? fallback : String(value);
+    const titleLabel = (value, fallback = 'Unknown') => label(value, fallback).replaceAll('_', ' ').replaceAll('-', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const verificationLabel = (chain, teeType) => {
+      if (chain?.registration === 'off') return 'Off';
+      if (chain?.tee_backend !== 'auto') return titleLabel(chain?.tee_backend);
+      return String(teeType).toLowerCase().includes('sev') ? 'Auto → ZK' : 'Auto → Solidity';
+    };
+    const setNotice = (message, isError = false) => {
+      byId('notice').textContent = message;
+      byId('notice').classList.toggle('error', isError);
+    };
+    const setBusy = (busy, busyLabel = 'Working') => {
+      for (const id of buttons) byId(id).disabled = busy;
+      byId('flowTag').textContent = busy ? busyLabel : 'Ready';
+      byId('flowTag').className = busy ? 'tag good' : 'tag';
+    };
+    async function postJson(path, payload) {
+      const response = await fetch(path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload || {})
+      });
+      const result = response.status === 204 ? {} : await response.json();
+      if (!response.ok) throw new Error(result.error || JSON.stringify(result));
+      return result;
+    }
+    function renderPortal(portal) {
+      const platform = portal?.platform || {};
+      const chain = portal?.chain || {};
+      const prover = portal?.prover || null;
+      const cloud = titleLabel(platform.cloud_type);
+      const tee = titleLabel(platform.tee_type);
+      const backend = verificationLabel(chain, platform.tee_type);
+      byId('cloudType').textContent = cloud;
+      byId('teeType').textContent = tee;
+      byId('verificationMode').textContent = backend;
+      byId('machineType').textContent = label(platform.machine_type);
+      byId('attestationMode').textContent = titleLabel(platform.attestation_mode);
+      byId('chainStatus').textContent = `${titleLabel(chain.status)} · ${titleLabel(chain.registration)}`;
+      byId('prover').textContent = prover ? `${label(prover.backend)} · ${label(prover.execution)}` : 'Not used';
+      byId('workloadRef').textContent = label(portal?.workload_ref);
+      byId('workloadId').textContent = label(portal?.workload_id);
+      byId('sessionId').textContent = label(chain.session_id);
+      byId('chainId').textContent = label(chain.chain_id);
+      byId('footerEnvironment').textContent = `${cloud} · ${tee} · ${backend}`;
+    }
+    function renderState(health, state, portalOnline) {
+      const workloadBytes = state.workload_payload_bytes ?? health.workload_payload_bytes;
+      const archiveBytes = state.upload?.archive_bytes;
+      const babyBytes = state.baby_reported_payload_bytes;
+      const images = Array.isArray(state.images) ? state.images : [];
+      const instances = Array.isArray(state.instances) ? state.instances : [];
+      currentImage = images[0] || null;
+      currentInstance = instances[0] || null;
+      uploadLimit = state.upload_limit_bytes || uploadLimit;
+
+      byId('workloadSize').textContent = formatBytes(workloadBytes);
+      byId('workloadBytes').textContent = exactBytes(workloadBytes, 'No test payload file');
+      byId('uploadSize').textContent = formatBytes(archiveBytes);
+      byId('uploadBytes').textContent = exactBytes(archiveBytes, 'No upload this run');
+      byId('babySize').textContent = formatBytes(babyBytes);
+      byId('babyBytes').textContent = exactBytes(babyBytes, 'No payload_bytes log record');
+      byId('instanceCount').textContent = `${instances.length} / 1`;
+      byId('slotName').textContent = `Slot: ${label(state.slot || health.slot, 'tester')}`;
+      byId('imageState').textContent = currentImage?.image_id || state.upload?.image_id || 'Not uploaded';
+      byId('instanceState').textContent = currentInstance?.status || 'Not created';
+      byId('instanceState').className = currentInstance?.status === 'running' ? 'tag good' : 'tag';
+      byId('instanceId').textContent = currentInstance?.instance_id || '—';
+      byId('containerName').textContent = currentInstance?.container_name || '—';
+      byId('containerId').textContent = currentInstance?.container_id || '—';
+      byId('logs').textContent = state.logs || 'No baby-container logs yet.';
+      byId('lastUpdate').textContent = new Date().toLocaleString();
+      byId('connection').textContent = portalOnline ? 'Portal online' : 'Workload online';
+      if (state.portal) renderPortal(state.portal);
+    }
+    async function refresh() {
+      try {
+        const [healthResponse, stateResponse] = await Promise.all([fetch('/health'), fetch('/api/state')]);
+        if (!healthResponse.ok) throw new Error('Workload health is unavailable');
+        const health = await healthResponse.json();
+        const state = await stateResponse.json();
+        renderState(health, state, stateResponse.ok && state.portal_available);
+        if (!stateResponse.ok) setNotice('The workload is online, but the local portal is unavailable in this preview.');
+      } catch (error) {
+        byId('connection').textContent = 'Runtime unavailable';
+        setNotice(error.message, true);
+      }
+    }
+    byId('refreshButton').addEventListener('click', refresh);
+    byId('uploadButton').addEventListener('click', () => {
+      const file = byId('imageFile').files[0];
+      if (!file) return setNotice('Select an OCI or Docker archive first.', true);
+      if (file.size > uploadLimit) return setNotice(`The archive exceeds the ${formatBytes(uploadLimit)} portal limit.`, true);
+      setBusy(true, 'Uploading');
+      setNotice(`Uploading ${file.name}…`);
+      byId('progress').classList.add('visible');
+      byId('progressBar').style.width = '0%';
+      const request = new XMLHttpRequest();
+      request.open('POST', '/api/upload');
+      request.setRequestHeader('content-type', 'application/octet-stream');
+      request.upload.onprogress = (event) => {
+        if (event.lengthComputable) byId('progressBar').style.width = `${(event.loaded / event.total) * 100}%`;
+      };
+      request.onload = async () => {
+        setBusy(false);
+        if (request.status >= 200 && request.status < 300) {
+          setNotice(`Image uploaded: ${file.size.toLocaleString()} bytes.`);
+          byId('progressBar').style.width = '100%';
+          await refresh();
+        } else setNotice(`Upload failed: ${request.responseText}`, true);
+      };
+      request.onerror = () => { setBusy(false); setNotice('Upload connection failed.', true); };
+      request.send(file);
+    });
+    byId('createButton').addEventListener('click', async () => {
+      const instanceId = byId('instanceIdInput').value.trim();
+      const payload = instanceId ? { instance_id: instanceId } : {};
+      setBusy(true, 'Starting');
+      setNotice('Starting the baby container…');
+      try { await postJson('/api/create', payload); setNotice('Baby container started.'); await refresh(); }
+      catch (error) { setNotice(`Create failed: ${error.message}`, true); }
+      finally { setBusy(false); }
+    });
+    byId('stopButton').addEventListener('click', async () => {
+      if (!currentInstance) return setNotice('There is no instance to stop.', true);
+      setBusy(true, 'Stopping');
+      try { await postJson('/api/stop', { instance_id: currentInstance.instance_id }); setNotice('Instance stopped.'); await refresh(); }
+      catch (error) { setNotice(`Stop failed: ${error.message}`, true); }
+      finally { setBusy(false); }
+    });
+    byId('removeButton').addEventListener('click', async () => {
+      if (!currentInstance) return setNotice('There is no instance to remove.', true);
+      setBusy(true, 'Removing');
+      try { await postJson('/api/remove', { instance_id: currentInstance.instance_id }); setNotice('Instance removed.'); await refresh(); }
+      catch (error) { setNotice(`Remove failed: ${error.message}`, true); }
+      finally { setBusy(false); }
+    });
+    byId('removeImageButton').addEventListener('click', async () => {
+      if (!currentImage) return setNotice('There is no image to remove.', true);
+      setBusy(true, 'Removing');
+      try { await postJson('/api/image/remove', { image_id: currentImage.image_id }); setNotice('Image removed.'); await refresh(); }
+      catch (error) { setNotice(`Image removal failed: ${error.message}`, true); }
+      finally { setBusy(false); }
+    });
+    refresh();
+    setInterval(refresh, 5000);
+  </script>
+</body>
+</html>

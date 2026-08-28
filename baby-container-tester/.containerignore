@@ -1,0 +1,10 @@
+*.atawl
+.git
+.gitignore
+README.md
+__pycache__
+payload.bin.tmp
+baby-src
+dist
+scripts
+test_server.py

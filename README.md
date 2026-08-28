@@ -9,7 +9,7 @@ be built from source with `atakit workload build`.
 | --- | --- | --- |
 | [fedora-oci](fedora-oci/) | `v0.0.17` | Fedora shell-in box with SSH and debugging/networking tools |
 | [multi-container-example](multi-container-example/) | `v0.5.5` | Three containers sharing a persistent disk and container network |
-| [baby-container-dynamic-update](baby-container-dynamic-update/) | `v0.1.6` | Workload-owned baby-container image upload/update dashboard |
+| [baby-container-tester](baby-container-tester/) | `v0.2.0` source | Portable TDX/SEV-SNP baby-container image, lifecycle, and payload-size dashboard |
 | [peer-attestation-demo](peer-attestation-demo/) | `v0.0.6` source | Two CVMs verify current sessions through `atakit-verifierd`; its encrypted-message framing is not a secure channel |
 | [iperf-benchmark](iperf-benchmark/) | `v0.1.3` | Minimal iperf3 server for TCP/UDP throughput testing |
 | [remote-log-smoke](remote-log-smoke/) | `v0.1.3` | Remote log collection through a Fluent Bit sidecar |
@@ -22,7 +22,7 @@ The current published base image is `automata-linux:v0.3.0-debug`. The quick
 start below follows the GCP TDX `c3-standard-4` path previously validated on
 Hoodi.
 
-The eight releases other than `storage-ip-env-smoke:v0.1.3` whitelist only
+Published releases other than `storage-ip-env-smoke:v0.1.3` whitelist only
 `automata-linux:v0.3.0-debug`. The existing
 `storage-ip-env-smoke:v0.1.3` release keeps an empty blacklist and permits
 `automata-linux:v0.3.0-debug`.
@@ -147,7 +147,6 @@ atakit image pull automata-linux:v0.3.0-debug gcp
 Pull and verify the published workload archives:
 
 ```sh
-atakit workload pull baby-container-dynamic-update:v0.1.6 --verify
 atakit workload pull fedora-oci:v0.0.17 --verify
 atakit workload pull iperf-benchmark:v0.1.3 --verify
 atakit workload pull multi-container-example:v0.5.5 --verify
@@ -173,9 +172,10 @@ atakit cloud deploy multi-container-example:v0.5.5 \
   --name multi-container-demo \
   --yes
 
-atakit cloud deploy baby-container-dynamic-update:v0.1.6 \
+./baby-container-tester/scripts/generate-workload-payload.py
+atakit cloud deploy -d baby-container-tester \
   --target gcp-c3-standard-4 \
-  --name baby-container-demo \
+  --name baby-container-tester-demo \
   --yes
 
 atakit cloud deploy iperf-benchmark:v0.1.3 \
@@ -223,7 +223,7 @@ Collect public IPs:
 ```sh
 atakit cloud status fedora-oci-demo --live
 atakit cloud status multi-container-demo --live
-atakit cloud status baby-container-demo --live
+atakit cloud status baby-container-tester-demo --live
 atakit cloud status iperf-benchmark-demo --live
 atakit cloud status peer-demo-alpha --live
 atakit cloud status peer-demo-beta --live
@@ -279,46 +279,17 @@ BASE_URL=http://<portal-pr-regression-ip>:3200 \
   cvm-workload-examples/portal-pr-regression-smoke/scripts/e2e.sh
 ```
 
-Baby-container dynamic update:
+Baby-container tester:
 
 ```sh
-cd baby-container-dynamic-update
-./scripts/build-baby-images.sh
-
-BASE_URL=http://<baby-container-ip>:3000
-
-curl -fsS -X POST \
-  --data-binary @dist/baby-forex-v1.tar \
-  "${BASE_URL}/api/upload"
-
-curl -fsS -X POST \
-  -H "content-type: application/json" \
-  -d "{}" \
-  "${BASE_URL}/api/create"
-
-curl -fsS "${BASE_URL}/api/state"
+cd baby-container-tester
+BASE_URL=http://<baby-container-ip>:3000 ./scripts/e2e-dashboard.sh
 ```
 
-To test a runtime update, upload v2, remove the running v1 instance, create a
-new instance, and check the state for `"version": "v2"` logs:
-
-```sh
-curl -fsS -X POST \
-  --data-binary @dist/baby-forex-v2.tar \
-  "${BASE_URL}/api/upload"
-
-curl -fsS -X POST \
-  -H "content-type: application/json" \
-  -d "{\"instance_id\":\"forex-worker-1\"}" \
-  "${BASE_URL}/api/remove"
-
-curl -fsS -X POST \
-  -H "content-type: application/json" \
-  -d "{}" \
-  "${BASE_URL}/api/create"
-
-curl -fsS "${BASE_URL}/api/state"
-```
+The default sample reports exactly `1,073,741,824` bytes. Set
+`BABY_PAYLOAD_BYTES` before the command to test another logical size. The
+dashboard reads the live cloud, TEE, verification backend, prover, workload,
+session, image, instance, and payload fields from the running CVM.
 
 Peer attestation demo:
 
@@ -338,7 +309,7 @@ Destroy deployments when done:
 ```sh
 atakit cloud destroy fedora-oci-demo --yes
 atakit cloud destroy multi-container-demo --yes
-atakit cloud destroy baby-container-demo --yes
+atakit cloud destroy baby-container-tester-demo --yes
 atakit cloud destroy iperf-benchmark-demo --yes
 atakit cloud destroy peer-demo-alpha peer-demo-beta --yes
 ```

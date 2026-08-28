@@ -1,0 +1,14 @@
+FROM docker.io/library/python:3.12-alpine
+
+WORKDIR /app
+COPY server.py dashboard.html payload.bin ./
+
+ENV PORT=3000
+ENV PORTAL_SOCKET=/run/atakit-portal.sock
+ENV BABY_SLOT=tester
+ENV UPLOAD_SPOOL_DIR=/var/lib/baby-container-tester/uploads
+ENV DASHBOARD_PATH=/app/dashboard.html
+ENV WORKLOAD_PAYLOAD_PATH=/app/payload.bin
+
+EXPOSE 3000
+CMD ["python", "server.py"]

@@ -1,0 +1,6 @@
+*.atawl
+*.pyc
+__pycache__/
+dist/
+payload.bin
+payload.bin.tmp

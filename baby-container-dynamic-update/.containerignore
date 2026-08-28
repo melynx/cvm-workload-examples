@@ -1,5 +1,0 @@
-dist/
-*.tar
-*.tar.gz
-.git/
-__pycache__/

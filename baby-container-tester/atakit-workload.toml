@@ -1,0 +1,53 @@
+format = 5
+
+[workload]
+name = "baby-container-tester"
+version = "v0.2.0"
+base-image-mode = "whitelist"
+base-image = ["0xaef8fc89416f01494ec6534de68d30aab26d7598db8a05967b0ba7d3ecb259d2/automata-linux:v0.3.0-debug"]
+image = { build = ".", containerfile = "Containerfile" }
+ports = ["3000:3000/tcp"]
+restart = "unless-stopped"
+atakit-portal = true
+gid-group = "controller"
+boot-disk-size = "20GB"
+
+[workload.storage.upload-spool]
+disk = "upload-spool"
+base-path = "/"
+mount-path = "/var/lib/baby-container-tester/uploads"
+read-only = false
+
+[workload.environment]
+PORT = "3000"
+PORTAL_SOCKET = "/run/atakit-portal.sock"
+BABY_SLOT = "tester"
+UPLOAD_SPOOL_DIR = "/var/lib/baby-container-tester/uploads"
+WORKLOAD_PAYLOAD_PATH = "/app/payload.bin"
+
+[baby-container]
+enabled = true
+max-instances = 1
+
+[baby-container.slots.tester]
+parent-service = "baby-container-tester"
+gid-group = "controller"
+image-selection = "single"
+max-instances = 1
+
+[baby-container.slots.tester.lifecycle]
+image-retention = "session"
+instance-retention = "ephemeral"
+restart = "manual"
+rootfs = "read-only"
+
+[baby-container.slots.tester.logging]
+driver = "k8s-file"
+
+[baby-container.slots.tester.logging.options]
+max-size = "5m"
+max-file = "2"
+
+[disks.upload-spool]
+size = "10GB"
+encryption = { unlock_method = [], bind = [] }

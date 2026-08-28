@@ -86,7 +86,6 @@ serial-port-enable = "true"
 ```sh
 atakit image pull automata-linux:v0.3.0-debug gcp
 
-atakit workload pull baby-container-dynamic-update:v0.1.6 --verify
 atakit workload pull fedora-oci:v0.0.17 --verify
 atakit workload pull iperf-benchmark:v0.1.3 --verify
 atakit workload pull multi-container-example:v0.5.5 --verify
@@ -110,9 +109,10 @@ atakit cloud deploy multi-container-example:v0.5.5 \
   --name multi-container-demo \
   --yes
 
-atakit cloud deploy baby-container-dynamic-update:v0.1.6 \
+./baby-container-tester/scripts/generate-workload-payload.py
+atakit cloud deploy -d baby-container-tester \
   --target gcp-c3-standard-4 \
-  --name baby-container-demo \
+  --name baby-container-tester-demo \
   --yes
 ```
 
@@ -121,7 +121,7 @@ Collect public IPs:
 ```sh
 atakit cloud status fedora-oci-demo --live
 atakit cloud status multi-container-demo --live
-atakit cloud status baby-container-demo --live
+atakit cloud status baby-container-tester-demo --live
 ```
 
 ## Deploy peer attestation
@@ -169,7 +169,7 @@ http://<peer-beta-ip>:3000/
 ```sh
 atakit cloud destroy fedora-oci-demo --yes
 atakit cloud destroy multi-container-demo --yes
-atakit cloud destroy baby-container-demo --yes
+atakit cloud destroy baby-container-tester-demo --yes
 atakit cloud destroy peer-demo-alpha peer-demo-beta --yes
 atakit cloud ls
 ```
