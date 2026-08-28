@@ -9,7 +9,7 @@ be built from source with `atakit workload build`.
 | --- | --- | --- |
 | [fedora-oci](fedora-oci/) | `v0.0.17` | Fedora shell-in box with SSH and debugging/networking tools |
 | [multi-container-example](multi-container-example/) | `v0.5.5` | Three containers sharing a persistent disk and container network |
-| [baby-container-tester](baby-container-tester/) | `v0.2.0` source | Portable TDX/SEV-SNP baby-container image, lifecycle, and payload-size dashboard |
+| [baby-container-tester](baby-container-tester/) | `v0.2.0` | Portable TDX/SEV-SNP baby-container image, lifecycle, and payload-size dashboard |
 | [peer-attestation-demo](peer-attestation-demo/) | `v0.0.6` source | Two CVMs verify current sessions through `atakit-verifierd`; its encrypted-message framing is not a secure channel |
 | [iperf-benchmark](iperf-benchmark/) | `v0.1.3` | Minimal iperf3 server for TCP/UDP throughput testing |
 | [remote-log-smoke](remote-log-smoke/) | `v0.1.3` | Remote log collection through a Fluent Bit sidecar |
@@ -96,10 +96,14 @@ examples = { type = "github", repo = "melynx/cvm-workload-examples" }
 
 [chains.hoodi]
 rpc_url = "https://ethereum-hoodi-rpc.publicnode.com"
-session_registry = "0xB247950fBBFCE245641e433AFd7d8884328CE5A1"
-workload_registry = "0xda6430E06385F7516963f8A3B4e87beBb89860F8"
-base_image_registry = "0xCbe56f9B73c822679Cf36DcF8D99434E0f1588Ca"
-expire_offset = 3600
+chain_id = 560048
+session_registry = "0x7575BceC155b272077C87aD3Ae5Ef54Cf9DC6601"
+workload_registry = "0x3a2E3D05cAAb7261e97F27ceDdffFbC9eEEe6b0D"
+base_image_registry = "0x6b837e4Cc2A7BDaA1d938CEE7fa0b82458dA0b14"
+tee_backend = "auto"
+
+[owner_operations]
+op_expiry_seconds = 3600
 
 [keys.owner]
 type = "es256k"
@@ -147,6 +151,7 @@ atakit image pull automata-linux:v0.3.0-debug gcp
 Pull and verify the published workload archives:
 
 ```sh
+atakit workload pull baby-container-tester:v0.2.0 --verify
 atakit workload pull fedora-oci:v0.0.17 --verify
 atakit workload pull iperf-benchmark:v0.1.3 --verify
 atakit workload pull multi-container-example:v0.5.5 --verify
@@ -172,8 +177,7 @@ atakit cloud deploy multi-container-example:v0.5.5 \
   --name multi-container-demo \
   --yes
 
-./baby-container-tester/scripts/generate-workload-payload.py
-atakit cloud deploy -d baby-container-tester \
+atakit cloud deploy baby-container-tester:v0.2.0 \
   --target gcp-c3-standard-4 \
   --name baby-container-tester-demo \
   --yes
