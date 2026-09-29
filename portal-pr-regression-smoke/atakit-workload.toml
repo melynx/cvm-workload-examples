@@ -1,4 +1,4 @@
-format = 5
+format = 10
 
 [workload]
 name = "portal-pr-regression-smoke"
@@ -28,6 +28,7 @@ max-instances = 1
 [baby-container.slots.regression-worker]
 parent-service = "portal-pr-regression-smoke"
 image-selection = "single"
+allowed-capabilities = ["SYS_CHROOT"]
 max-instances = 1
 
 [baby-container.slots.regression-worker.lifecycle]
@@ -49,7 +50,7 @@ read-only = false
 
 [baby-container.slots.regression-worker.storage.workspace.permissions]
 baby = "rw"
-parent = "none"
+parent = "rw"
 
 [disks.regression-data]
 index = 10

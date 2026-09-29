@@ -47,8 +47,8 @@ jq -e '
   .config.dependencies.scheduler.logging["log-readers"] == ["log-shipper"] and
   .config.dependencies.metrics.logging["log-readers"] == ["log-shipper"] and
   .config.dependencies["log-shipper"]["workload-logs"] == true and
-  .config.dependencies["log-shipper"]["measured-data"] == true and
-  .config.dependencies["log-shipper"]["unmeasured-data"] == true and
+  (.config.dependencies["log-shipper"]["measured-data"] | index("measured-data/config/fluent-bit.conf")) != null and
+  (.config.dependencies["log-shipper"]["unmeasured-data"] | index("unmeasured-data/secrets/runtime.env")) != null and
   .config.dependencies["log-shipper"]["unmeasured-env-files"] == ["unmeasured-data/secrets/runtime.env"]
 ' "${MANIFEST_JSON}" >/dev/null
 

@@ -44,6 +44,14 @@ atakit cloud status iperf-benchmark-demo --live
 
 ## Run Benchmarks
 
+The helper uses a local `iperf3` if installed. Otherwise it builds and runs
+a client with Podman using this workload’s Containerfile. Set `CONTAINER_ENGINE`
+to use another compatible container engine.
+
+```sh
+./scripts/client.sh <cvm-ip> -t 5 -J
+```
+
 TCP upload from your client to the CVM:
 
 ```sh

@@ -19,13 +19,13 @@ tar_path="${tmp}/portal-pr-regression-baby.tar"
 rm -f "$tar_path"
 "$ENGINE" save portal-pr-regression-baby:latest -o "$tar_path"
 
-curl -fsS "$BASE_URL/status" | jq -e '.ok == true and .diskroot.write == true' >/dev/null
-curl -fsS -X POST --data-binary "@${tar_path}" "$BASE_URL/baby/upload" | jq -e '.image_id | startswith("sha256:")' >/dev/null
-curl -fsS -X POST "$BASE_URL/baby/create" | jq -e '.instance.instance_id == "regression-1"' >/dev/null
+curl --fail-with-body -sS "$BASE_URL/status" | jq -e '.ok == true and .diskroot.write == true' >/dev/null
+curl --fail-with-body -sS -X POST --data-binary "@${tar_path}" "$BASE_URL/baby/upload" | jq -e '.image_id | startswith("sha256:")' >/dev/null
+curl --fail-with-body -sS -X POST "$BASE_URL/baby/create" | jq -e '.instance.instance_id == "regression-1"' >/dev/null
 
 deadline=$(( $(date +%s) + ${POLL_TIMEOUT_SECONDS:-180} ))
 while [ "$(date +%s)" -lt "$deadline" ]; do
-  if curl -fsS "$BASE_URL/baby/status" | jq -e '.ok == true' >/dev/null; then
+  if curl --fail-with-body -sS "$BASE_URL/baby/status" | jq -e '.ok == true' >/dev/null; then
     echo "portal-pr-regression-smoke passed"
     exit 0
   fi
@@ -33,5 +33,5 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
 done
 
 echo "Timed out waiting for baby chroot/storage logs" >&2
-curl -fsS "$BASE_URL/baby/status" || true
+curl --fail-with-body -sS "$BASE_URL/baby/status" || true
 exit 1
