@@ -131,6 +131,15 @@ setInterval(refresh, 2000);
 """
 
 
+def sync_directory(path):
+    """Persist newly created filenames before acknowledging a task."""
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
@@ -212,6 +221,9 @@ class Handler(BaseHTTPRequestHandler):
         os.makedirs(SHARED, exist_ok=True)
         with open(os.path.join(SHARED, f"{task_id}.txt"), "w") as f:
             f.write(body)
+            f.flush()
+            os.fsync(f.fileno())
+        sync_directory(SHARED)
 
         # Notify workers over the container network.
         worker_results = {}

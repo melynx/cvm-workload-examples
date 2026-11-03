@@ -33,6 +33,15 @@ def heartbeat_loop():
         time.sleep(5)
 
 
+def sync_directory(path):
+    """Persist newly created filenames before acknowledging a task."""
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
@@ -99,6 +108,9 @@ class Handler(BaseHTTPRequestHandler):
             f.write(f"time: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"original_length: {len(original)}\n")
             f.write(f"payload_length: {len(payload)}\n")
+            f.flush()
+            os.fsync(f.fileno())
+        sync_directory(SHARED)
 
         processed_count += 1
         self._json(200, {"status": "processed", "worker": NAME, "task_id": task_id})
